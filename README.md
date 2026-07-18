@@ -138,5 +138,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 <div align="center">
-<i>Prepared for Professional Showcase, MCA Project Presentations, and Technical Demonstrations.</i>
+<i>Developed by Om Nandkishor Yadav.</i>
 </div>
