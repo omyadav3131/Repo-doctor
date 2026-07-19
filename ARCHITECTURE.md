@@ -6,12 +6,12 @@ This document outlines the high-level system architecture, data flows, and inter
 
 ## 1. High-Level System Architecture
 
-RepoDoctor is built using a decoupled Client-Server architecture. The frontend is a Single Page Application (SPA) served via a lightweight development server or CDN, communicating with a backend REST API built on Spring Boot. The backend orchestrates external requests to the GitHub API, caches responses, analyzes data concurrently, and persists analysis results to PostgreSQL.
+RepoDoctor is built using a decoupled Client-Server architecture. The frontend is a Single Page Application (SPA) served via a lightweight development server or CDN, communicating with a backend REST API built on Spring Boot. The backend orchestrates external requests to the GitHub API, caches responses, analyzes data concurrently, and persists analysis results to a file-based H2 database.
 
 ```mermaid
 graph TD
     Client[React SPA Client] -->|HTTP/REST| API(Spring Boot REST API)
-    API -->|JPA/Hibernate| DB[(PostgreSQL Database)]
+    API -->|JPA/Hibernate| DB[(H2 Database)]
     API <-->|HTTP/Bearer Token| GitHub(GitHub API)
     
     subgraph Backend Server
@@ -37,11 +37,10 @@ sequenceDiagram
     participant Orchestrator as AnalysisOrchestrator
     participant Analyzers as DimensionAnalyzers (6x)
     participant GitHub as GitHub API
-    participant DB as PostgreSQL
+    participant DB as H2 Database
 
     User->>Controller: POST /api/analyze {repoUrl}
-    Controller->>Orchestrator: Initiate Analysis (Async)
-    Orchestrator->>Controller: Return 202 Accepted (Analysis ID)
+    Controller->>Orchestrator: Initiate Synchronous Analysis (90s timeout)
     
     par Parallel Dimension Analysis
         Orchestrator->>Analyzers: Analyze Hygiene
@@ -56,8 +55,8 @@ sequenceDiagram
     Orchestrator->>Orchestrator: Calculate Overall Score
     Orchestrator->>DB: Save AnalysisSnapshot (JSON)
     
-    User->>Controller: GET /api/analyze/{id}/status
-    Controller-->>User: Return 200 OK (Completed)
+    Orchestrator-->>Controller: Return AnalysisResponse
+    Controller-->>User: Return 200 OK (Completed AnalysisResponse)
 ```
 
 ---
@@ -96,7 +95,7 @@ flowchart TD
 
 ## 4. Database Schema
 
-The database uses a NoSQL-in-SQL approach. While relational structures are used for indexing, the complex, highly dynamic analysis results are stored as a JSONB snapshot to allow maximum flexibility without rigid schema migrations.
+The database uses a NoSQL-in-SQL approach. While relational structures are used for indexing, the complex, highly dynamic analysis results are stored as a JSON string snapshot to allow maximum flexibility without rigid schema migrations.
 
 ```mermaid
 erDiagram

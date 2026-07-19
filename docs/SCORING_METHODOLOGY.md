@@ -37,7 +37,9 @@ Overall confidence is calculated based on how many dimensions were successfully 
 ## 6. Sparse Repository Gate
 Sparse repositories (e.g., ones with no code, no meaningful commits, or no structure) cannot receive a confident `GOOD` or `VERY_GOOD` health classification, regardless of their partial score in available dimensions. Sparse repositories are typically classified as `NEEDS_REVIEW` or `CRITICAL_RISK`.
 
-## 7. Heuristic Limitations
+## 7. Heuristic Limitations & Sampling
 - Commit analysis does not parse diff sizes, it only evaluates commit messages.
 - Code Quality looks for regex patterns (TODOs, FIXMEs, possible secrets) rather than building an Abstract Syntax Tree (AST).
 - The README and documentation analyzers use word counts and keyword checks rather than NLP-based semantic understanding.
+- **Deterministic Sampling:** To prevent unpredictable scores and GitHub API timeouts, large repositories have their valid files sorted alphabetically, and only the first 50 are sampled for deep regex inspection.
+- **Duplicate Detection:** Duplicate file detection relies on strict raw content comparison (hashing/string matching) of files with identical names, completely avoiding filename-only blacklists and false positives for standard framework files (e.g., `index.js`, `__init__.py`).
