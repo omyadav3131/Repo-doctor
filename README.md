@@ -15,21 +15,19 @@
 
 ### 📸 Application Showcase
 
-> **Note:** Screenshots are currently loading from the `assets/images` directory. 
-
-````carousel
-![RepoDoctor Home Page](assets/images/Home_page.png)
-<!-- slide -->
-![Analyze Repository](assets/images/home_repo_insert.png)
-<!-- slide -->
-![Repository Info](assets/images/Analyzed_repo_info.png)
-<!-- slide -->
-![Score Breakdown](assets/images/Analyzed_repo_score.png)
-<!-- slide -->
-![Actionable Recommendations](assets/images/Analyyzed_repo_recom.png)
-<!-- slide -->
-![Analysis History](assets/images/History.png)
-````
+<div align="center">
+  <img src="assets/images/Home_page.png" alt="RepoDoctor Home Page" width="80%">
+  <br><br>
+  <img src="assets/images/home_repo_insert.png" alt="Analyze Repository" width="80%">
+  <br><br>
+  <img src="assets/images/Analyzed_repo_info.png" alt="Repository Info" width="80%">
+  <br><br>
+  <img src="assets/images/Analyzed_repo_score.png" alt="Score Breakdown" width="80%">
+  <br><br>
+  <img src="assets/images/Analyyzed_repo_recom.png" alt="Actionable Recommendations" width="80%">
+  <br><br>
+  <img src="assets/images/History.png" alt="Analysis History" width="80%">
+</div>
 
 ---
 </div>
