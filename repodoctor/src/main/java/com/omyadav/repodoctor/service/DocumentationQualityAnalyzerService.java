@@ -46,11 +46,15 @@ public class DocumentationQualityAnalyzerService {
 
         List<String> evidence = new ArrayList<>();
         Map<String, Object> details = new HashMap<>();
+        List<String> reasons = new ArrayList<>();
 
         // Presence (Max 30)
         if (!docsFiles.isEmpty()) {
             scorePresence += 15;
             evidence.add("Dedicated documentation files/folders found.");
+            reasons.add("✔ Dedicated documentation files/folders found");
+        } else {
+            reasons.add("✘ No dedicated documentation files found");
         }
         
         AtomicInteger filesWithComments = new AtomicInteger(0);
@@ -94,8 +98,12 @@ public class DocumentationQualityAnalyzerService {
             if (commentedFileRatio >= 0.2) {
                 scorePresence += 15;
                 evidence.add("Source code contains inline comments or docstrings.");
+                reasons.add("✔ Source code is well-commented (" + Math.round(commentedFileRatio*100) + "% of files)");
             } else if (commentedFileRatio > 0) {
                 scorePresence += 5;
+                reasons.add("✘ Sparse inline comments (" + Math.round(commentedFileRatio*100) + "% of files)");
+            } else {
+                reasons.add("✘ No inline comments detected in source code");
             }
 
             // Completeness (Max 40)
@@ -105,12 +113,16 @@ public class DocumentationQualityAnalyzerService {
                 if (totalDocLines.get() >= totalCodeLines.get() * 0.3) {
                     scoreCompleteness += 20;
                     evidence.add("Healthy ratio of Markdown to Code cells in Notebook.");
+                    reasons.add("✔ Healthy ratio of Markdown to Code cells");
                 }
             } else {
                 if (totalDocLines.get() > 0) scoreCompleteness += 15;
                 if (totalDocLines.get() >= totalCodeLines.get() * 0.1) {
                     scoreCompleteness += 15;
                     evidence.add("Healthy ratio of comments/docstrings to source lines.");
+                    reasons.add("✔ Good ratio of comments/docstrings to source lines");
+                } else if (totalCodeLines.get() > 500) {
+                    reasons.add("✘ Low ratio of comments to source code");
                 }
                 if (docsFiles.size() >= 2) {
                     scoreCompleteness += 10;
@@ -124,18 +136,21 @@ public class DocumentationQualityAnalyzerService {
             if (docsFiles.size() > 5) {
                 scoreQuality += 15;
                 evidence.add("Extensive external documentation detected.");
+                reasons.add("✔ Extensive external documentation detected (" + docsFiles.size() + " files)");
             }
         } else if ("DOCUMENTATION_REPOSITORY".equals(repositoryType)) {
             if (docsFiles.size() > 2) {
                 scorePresence = 30;
                 scoreCompleteness = 20;
                 evidence.add("Multiple documentation files detected.");
+                reasons.add("✔ Multiple documentation files detected");
                 if (docsFiles.size() >= 5) {
                     scoreCompleteness += 20;
                 }
                 if (docsFiles.stream().anyMatch(f -> f.toLowerCase().contains("/docs/") || f.toLowerCase().contains("/guides/"))) {
                     scoreQuality += 30;
                     evidence.add("Dedicated docs/ hierarchy detected.");
+                    reasons.add("✔ Dedicated docs hierarchy detected");
                 } else if (docsFiles.size() > 10) {
                     scoreQuality += 15;
                 }
@@ -145,6 +160,7 @@ public class DocumentationQualityAnalyzerService {
                 scoreCompleteness = 10;
                 scoreQuality = 0;
                 evidence.add("Minimal documentation structure found for a documentation repo.");
+                reasons.add("✘ Minimal documentation for a docs repository");
             }
         }
 
@@ -161,10 +177,10 @@ public class DocumentationQualityAnalyzerService {
             documentationCoverage = 100.0;
         }
         
-        List<String> largeUndocumentedFiles = new ArrayList<>();
-        // we didn't track per-file in the lambda easily, so we can just say if coverage < 20% and we had files, we warn on the largest one. But wait, we can track it easily!
-        // We need a thread-safe list.
-        // Actually, let's just add it to details below.
+        List<String> largeUndocumentedFiles = new ArrayList<>(largeUndocumentedFilesList);
+        if (!largeUndocumentedFiles.isEmpty()) {
+            reasons.add("✘ Large undocumented files detected (" + largeUndocumentedFiles.size() + ")");
+        }
 
         Map<String, Integer> breakdown = new HashMap<>();
         breakdown.put("Presence", scorePresence);
@@ -175,7 +191,9 @@ public class DocumentationQualityAnalyzerService {
         details.put("totalDocLines", totalDocLines.get());
         details.put("totalCodeLines", totalCodeLines.get());
         details.put("documentationCoverage", documentationCoverage);
-        details.put("largeUndocumentedFiles", new ArrayList<>(largeUndocumentedFilesList));
+        details.put("largeUndocumentedFiles", largeUndocumentedFiles);
+        details.put("reasons", reasons);
+        details.put("needsDocumentationImprovement", largeUndocumentedFiles.size() > 0 || (validFiles > 0 && documentationCoverage < 15.0));
 
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)
@@ -226,15 +244,41 @@ public class DocumentationQualityAnalyzerService {
         return new int[]{docLines, codeLines};
     }
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
     private int[] analyzeNotebookDocs(String content) {
-        int markdownCells = 0;
-        int codeCells = 0;
-        Matcher typeMatcher = Pattern.compile("\"cell_type\":\\s*\"(markdown|code)\"").matcher(content);
-        while (typeMatcher.find()) {
-            if ("markdown".equals(typeMatcher.group(1))) markdownCells++;
-            else codeCells++;
+        int docLines = 0;
+        int codeLines = 0;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(content);
+            com.fasterxml.jackson.databind.JsonNode cells = root.path("cells");
+            if (cells.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode cell : cells) {
+                    String cellType = cell.path("cell_type").asText();
+                    com.fasterxml.jackson.databind.JsonNode source = cell.path("source");
+                    int lineCount = 0;
+                    if (source.isArray()) {
+                        lineCount = source.size();
+                    } else if (source.isTextual()) {
+                        lineCount = source.asText().split("\\R").length;
+                    }
+                    
+                    if ("markdown".equals(cellType)) {
+                        docLines += lineCount;
+                    } else if ("code".equals(cellType)) {
+                        codeLines += lineCount;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Fallback to regex if parsing fails or not valid JSON
+            Matcher typeMatcher = Pattern.compile("\"cell_type\":\\s*\"(markdown|code)\"").matcher(content);
+            while (typeMatcher.find()) {
+                if ("markdown".equals(typeMatcher.group(1))) docLines += 5; // estimate
+                else codeLines += 10; // estimate
+            }
         }
-        return new int[]{markdownCells, codeCells};
+        return new int[]{docLines, codeLines};
     }
 
     private boolean isSourceFile(String filePath) {

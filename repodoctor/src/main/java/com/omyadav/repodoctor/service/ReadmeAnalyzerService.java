@@ -28,6 +28,7 @@ public class ReadmeAnalyzerService {
 
         List<String> evidence = new ArrayList<>();
         Map<String, Object> details = new HashMap<>();
+        List<String> reasons = new ArrayList<>();
 
         int scorePresence = 0;
         int scoreCompleteness = 0;
@@ -38,48 +39,64 @@ public class ReadmeAnalyzerService {
         if (content.length() > 50) {
             scorePresence += 15;
             evidence.add("README is present and contains some text.");
+            reasons.add("✔ README is present and non-empty");
         } else {
             evidence.add("README is practically empty.");
+            reasons.add("✘ README is practically empty");
         }
 
         if (content.length() > 50) {
             // Completeness (Max 40)
+            boolean hasOverview = hasHeadingWithContent(content, "overview", "business problem", "about");
             boolean hasInstallation = hasHeadingWithContent(content, "install", "setup", "getting started");
             boolean hasUsage = hasHeadingWithContent(content, "usage", "run", "quickstart", "how to use");
             boolean hasConfig = hasHeadingWithContent(content, "env", "config", "environment");
-            boolean hasArchitecture = hasHeadingWithContent(content, "architecture", "design", "structure");
+            boolean hasArchitecture = hasHeadingWithContent(content, "architecture", "design", "structure", "repository structure");
             boolean hasFeatures = hasHeadingWithContent(content, "features");
-            boolean hasContributing = hasHeadingWithContent(content, "contributing", "license");
-            boolean hasApiDocs = hasHeadingWithContent(content, "api", "docs", "documentation", "examples");
+            boolean hasScreenshots = hasHeadingWithContent(content, "screenshot", "dashboard", "ui");
+            boolean hasResults = hasHeadingWithContent(content, "result", "model evaluation", "evaluation", "metrics", "performance");
+            boolean hasContributing = hasHeadingWithContent(content, "contributing", "license", "author", "future work");
+            boolean hasApiDocs = hasHeadingWithContent(content, "api", "docs", "documentation", "examples", "notebook guide");
 
             Map<String, Object> readmeChecks = new HashMap<>();
+            readmeChecks.put("Overview / Business Problem", hasOverview);
             readmeChecks.put("Installation instructions", hasInstallation);
             readmeChecks.put("Usage examples", hasUsage);
             readmeChecks.put("Configuration details", hasConfig);
             readmeChecks.put("Architecture / Features", hasFeatures || hasArchitecture);
+            readmeChecks.put("Screenshots / Dashboards", hasScreenshots);
+            readmeChecks.put("Results / Model Evaluation", hasResults);
             readmeChecks.put("Contributing / License", hasContributing);
             readmeChecks.put("API / Documentation", hasApiDocs);
             details.put("readmeChecks", readmeChecks);
 
-            if (hasInstallation) { scoreCompleteness += 10; evidence.add("Installation section found."); }
-            if (hasUsage) { scoreCompleteness += 10; evidence.add("Usage section found."); }
-            if (hasFeatures || hasArchitecture) { scoreCompleteness += 5; evidence.add("Features/Architecture section found."); }
-            if (hasConfig) { scoreCompleteness += 5; evidence.add("Configuration section found."); }
-            if (hasContributing) { scoreCompleteness += 5; evidence.add("Contributing/License section found."); }
-            if (hasApiDocs) { scoreCompleteness += 5; evidence.add("API/Docs/Examples section found."); }
+            if (hasOverview) { scoreCompleteness += 5; evidence.add("Overview/Business Problem section found."); reasons.add("✔ Overview provided"); }
+            if (hasInstallation) { scoreCompleteness += 10; evidence.add("Installation section found."); reasons.add("✔ Installation instructions provided"); }
+            else { reasons.add("✘ Missing installation instructions"); }
+            
+            if (hasUsage) { scoreCompleteness += 10; evidence.add("Usage section found."); reasons.add("✔ Usage examples provided"); }
+            else { reasons.add("✘ Missing usage instructions"); }
+            
+            if (hasFeatures || hasArchitecture) { scoreCompleteness += 5; evidence.add("Features/Architecture section found."); reasons.add("✔ Project features/architecture documented"); }
+            if (hasConfig) { scoreCompleteness += 5; evidence.add("Configuration section found."); reasons.add("✔ Configuration details documented"); }
+            if (hasScreenshots) { scoreCompleteness += 5; evidence.add("Screenshots/Dashboard section found."); reasons.add("✔ Visual documentation provided"); }
+            if (hasResults) { scoreCompleteness += 5; evidence.add("Results/Evaluation section found."); reasons.add("✔ Results/Evaluation documented"); }
+            if (hasContributing) { scoreCompleteness += 5; evidence.add("Contributing/License section found."); reasons.add("✔ Contributing/License guidelines provided"); }
+            if (hasApiDocs) { scoreCompleteness += 5; evidence.add("API/Docs/Examples section found."); reasons.add("✔ API/Documentation references provided"); }
 
             // Quality (Max 30)
             if (content.length() >= 500) { scoreQuality += 5; }
-            if (content.length() >= 1500) { scoreQuality += 5; }
+            if (content.length() >= 1500) { scoreQuality += 5; reasons.add("✔ Extensive README documentation"); }
 
-            if (hasCodeBlock(content)) { scoreQuality += 10; evidence.add("Code blocks detected."); }
+            if (hasCodeBlock(content)) { scoreQuality += 10; evidence.add("Code blocks detected."); reasons.add("✔ Useful code blocks/snippets included"); }
             if (hasMarkdownLink(content)) { scoreQuality += 5; }
             
-            if (hasImageOrBadge(content)) { scoreQuality += 5; evidence.add("Images or badges detected."); }
+            if (hasImageOrBadge(content)) { scoreQuality += 5; evidence.add("Images or badges detected."); reasons.add("✔ Images or badges used for presentation"); }
 
             if (isBoilerplate(content)) {
                 scoreQuality -= 20;
                 evidence.add("README appears to be mostly generated boilerplate.");
+                reasons.add("✘ README appears to be unedited boilerplate");
             }
         }
 
@@ -96,6 +113,7 @@ public class ReadmeAnalyzerService {
         breakdown.put("Quality", scoreQuality);
         details.put("Score Breakdown", breakdown);
         details.put("contentLength", content.length());
+        details.put("reasons", reasons);
 
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)

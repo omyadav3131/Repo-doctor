@@ -47,6 +47,8 @@ public class OverallRepositoryScoreService {
 
         double validWeightSum = 0.0;
         int validDimensionCount = 0;
+        double totalConfidenceWeight = 0.0;
+        double totalConfidenceScore = 0.0;
 
         // Step 1: Determine which dimensions are analyzable and their total base weight
         for (Map.Entry<String, DimensionResult> entry : dimensions.entrySet()) {
@@ -62,6 +64,10 @@ public class OverallRepositoryScoreService {
                 if (result.getScore() != null) {
                     validWeightSum += BASE_WEIGHTS.get(name);
                     validDimensionCount++;
+                    
+                    double dimConfidence = result.getConfidence() != null ? result.getConfidence() : 1.0;
+                    totalConfidenceScore += dimConfidence * BASE_WEIGHTS.get(name);
+                    totalConfidenceWeight += BASE_WEIGHTS.get(name);
                 } else {
                     excludedDimensions.add(name);
                 }
@@ -78,6 +84,16 @@ public class OverallRepositoryScoreService {
                     unsupportedMetrics.add(name);
                 } else {
                     unknownMetrics.add(name);
+                }
+            }
+            
+            // Extract dimension reasons if they exist
+            if (result.getDetails() != null && result.getDetails().containsKey("reasons")) {
+                Object reasonsObj = result.getDetails().get("reasons");
+                if (reasonsObj instanceof List<?>) {
+                    for (Object reasonObj : (List<?>) reasonsObj) {
+                        reasoning.add("[" + name + "] " + reasonObj.toString());
+                    }
                 }
             }
         }
@@ -105,6 +121,10 @@ public class OverallRepositoryScoreService {
                     Map.of());
         }
 
+        double overallConfidence = totalConfidenceWeight > 0 ? totalConfidenceScore / totalConfidenceWeight : 0.0;
+        if (overallConfidence < 0) overallConfidence = 0.0;
+        if (overallConfidence > 1.0) overallConfidence = 1.0;
+
         // Step 2: Calculate the weighted score and dynamic weight redistribution
         double finalScoreRaw = 0.0;
         Map<String, DimensionResult> weightedDimensionsMap = new LinkedHashMap<>();
@@ -127,60 +147,12 @@ public class OverallRepositoryScoreService {
                         .build());
                         
                 evidence.add(name + " contributed " + round(contribution) + " to the final score (Weight: " + round(redistributedWeight*100) + "%).");
-            } else {
-                // Do not put null values in map to avoid NullPointerException in Map.copyOf
-                // weightedDimensionsMap.put(name, null);
             }
         }
 
         int finalScore = (int) Math.round(Math.max(0, Math.min(100, finalScoreRaw)));
         
-        // Apply Repository Scale Penalties
-        boolean isSoftware = repositoryType != null && !repositoryType.equals("DOCUMENTATION_REPOSITORY") && !repositoryType.equals("README_ONLY") && !repositoryType.equals("EMPTY") && !repositoryType.equals("UNKNOWN");
-        
-        if (isSoftware) {
-            DimensionResult cq = dimensions.get("Code Quality");
-            if (cq == null || cq.getStatus() == AnalysisStatus.NOT_ANALYZABLE) {
-                finalScore = Math.min(finalScore, 10);
-                warnings.add("Critical Penalty: Classified as software but no analyzable code found. Score capped at 10.");
-                evidence.add("Score capped at 10 due to missing source code.");
-            } else if (cq.getScore() != null && cq.getDetails() != null) {
-                Object linesObj = cq.getDetails().get("totalImplementationLines");
-                if (linesObj instanceof Number) {
-                    int lines = ((Number) linesObj).intValue();
-                    if (lines == 0) {
-                        finalScore = Math.min(finalScore, 10);
-                        warnings.add("Critical Penalty: No implementation lines found. Score capped at 10.");
-                        evidence.add("Score capped at 10 due to 0 implementation lines.");
-                    } else if (lines < 50) {
-                        finalScore = Math.min(finalScore, 15);
-                        warnings.add("Penalty: Very small scale (" + lines + " lines). Score capped at 15.");
-                        evidence.add("Score capped at 15 due to very small code size.");
-                    } else if (lines < 250) {
-                        finalScore = Math.min(finalScore, 25);
-                        warnings.add("Penalty: Tiny project scale (" + lines + " lines). Score capped at 25.");
-                        evidence.add("Score capped at 25 due to tiny project scale.");
-                    } else if (lines < 500) {
-                        finalScore = Math.min(finalScore, 45);
-                        warnings.add("Penalty: Small student/toy project scale (" + lines + " lines). Score capped at 45.");
-                        evidence.add("Score capped at 45 due to small project scale.");
-                    } else if (lines < 2000) {
-                        finalScore = Math.min(finalScore, 70);
-                        warnings.add("Penalty: Medium scale project (" + lines + " lines). Score capped at 70.");
-                        evidence.add("Score capped at 70 due to medium project scale.");
-                    }
-                }
-            }
-        } else if ("EMPTY".equals(repositoryType)) {
-            finalScore = Math.min(finalScore, 10);
-            warnings.add("Repository is empty. Score capped at 10.");
-            evidence.add("Score capped at 10 because repository is empty.");
-        } else if ("README_ONLY".equals(repositoryType)) {
-            finalScore = Math.min(finalScore, 15);
-            warnings.add("Repository is README-only. Score capped at 15.");
-            evidence.add("Score capped at 15 because repository is README-only.");
-        }
-        
+        // No arbitrary scale caps. The final score is purely based on measurable dimension evidence.
         String health = mapRepositoryHealth(finalScore);
         String grade = calculateGrade(finalScore);
         
@@ -189,7 +161,7 @@ public class OverallRepositoryScoreService {
         return new OverallResult(
                 finalStatus,
                 finalScore,
-                1.0, // Confidence simplified to 1.0
+                round(overallConfidence),
                 grade,
                 health,
                 validDimensionCount,

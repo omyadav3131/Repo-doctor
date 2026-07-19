@@ -49,6 +49,7 @@ public class CodeQualityAnalyzerService {
         
         List<String> evidence = new ArrayList<>();
         Map<String, Object> details = new HashMap<>();
+        List<String> reasons = new ArrayList<>();
 
         List<java.util.concurrent.CompletableFuture<String>> contentFutures = new ArrayList<>();
         for (String file : sourceFiles) {
@@ -126,6 +127,38 @@ public class CodeQualityAnalyzerService {
         breakdown.put("Hardcoded Secrets Penalty", -penaltySecrets);
         breakdown.put("Debug Statements Penalty", -penaltyDebug);
         
+        if (largeFiles > 0) {
+            evidence.add(largeFiles + " files are very large (>500 lines).");
+            reasons.add("✘ " + largeFiles + " files are excessively large (>500 lines)");
+        } else {
+            reasons.add("✔ No excessively large files detected");
+        }
+        
+        if (filesWithTodos > 0) {
+            evidence.add(filesWithTodos + " files contain TODO/FIXME comments.");
+            reasons.add("✘ TODO/FIXME comments found in " + filesWithTodos + " files");
+        } else {
+            reasons.add("✔ No TODO/FIXME comments detected");
+        }
+        
+        if (filesWithSecrets > 0) {
+            evidence.add(filesWithSecrets + " files appear to contain hardcoded secrets or API keys.");
+            reasons.add("✘ Hardcoded secrets or API keys detected in " + filesWithSecrets + " files");
+        } else {
+            reasons.add("✔ No hardcoded secrets detected");
+        }
+        
+        if (debugStatementCount > 0) {
+            evidence.add(debugStatementCount + " files contain leftover debug statements (e.g., console.log, print).");
+            reasons.add("✘ Leftover debug statements (console.log, print) in " + debugStatementCount + " files");
+        } else {
+            reasons.add("✔ Clean from basic leftover debug prints");
+        }
+        
+        if (evidence.isEmpty()) {
+            evidence.add("No major code quality issues detected (no huge files, secrets, or excess TODOs).");
+        }
+
         details.put("Score Breakdown", breakdown);
         details.put("sourceFilesAnalyzed", analyzedCount);
         details.put("realSourceFileCount", analyzedCount); // keeping old name just in case
@@ -140,15 +173,7 @@ public class CodeQualityAnalyzerService {
         details.put("debugStatementCount", debugStatementCount);
         details.put("debugStatementFiles", debugStatementFiles);
         details.put("longFunctionCount", 0); // Not implemented currently
-
-        if (largeFiles > 0) evidence.add(largeFiles + " files are very large (>500 lines).");
-        if (filesWithTodos > 0) evidence.add(filesWithTodos + " files contain TODO/FIXME comments.");
-        if (filesWithSecrets > 0) evidence.add(filesWithSecrets + " files appear to contain hardcoded secrets or API keys.");
-        if (debugStatementCount > 0) evidence.add(debugStatementCount + " files contain leftover debug statements (e.g., console.log, print).");
-        
-        if (evidence.isEmpty()) {
-            evidence.add("No major code quality issues detected (no huge files, secrets, or excess TODOs).");
-        }
+        details.put("reasons", reasons);
 
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(score)
@@ -181,7 +206,9 @@ public class CodeQualityAnalyzerService {
 
             if (lower.endsWith(".java") || lower.endsWith(".py") || lower.endsWith(".js") || lower.endsWith(".ts") ||
                 lower.endsWith(".jsx") || lower.endsWith(".tsx") || lower.endsWith(".go") || lower.endsWith(".cs") ||
-                lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".php") || lower.endsWith(".rb")) {
+                lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".h") || lower.endsWith(".hpp") ||
+                lower.endsWith(".php") || lower.endsWith(".rb") || lower.endsWith(".dart") || lower.endsWith(".swift") || 
+                lower.endsWith(".kt")) {
                 valid.add(f);
             }
         }

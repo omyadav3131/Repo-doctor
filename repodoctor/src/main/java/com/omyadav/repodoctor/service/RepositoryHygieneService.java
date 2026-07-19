@@ -52,6 +52,7 @@ public class RepositoryHygieneService {
         boolean hasCodeowners = false;
 
         boolean hasDirtyFiles = false;
+        List<String> explicitDirtyFiles = new ArrayList<>();
 
         for (Map<String, Object> item : tree) {
             String path = item.get("path").toString();
@@ -67,36 +68,57 @@ public class RepositoryHygieneService {
             if (lowerPath.equals(".github/dependabot.yml")) hasDependabot = true;
             if (lowerPath.equals("codeowners") || lowerPath.equals(".github/codeowners")) hasCodeowners = true;
 
-            // Dirty files
-            if (lowerPath.startsWith(".vs/") || lowerPath.contains(".ipynb_checkpoints") || lowerPath.contains("__pycache__") || lowerPath.endsWith(".pyc") || lowerPath.equals(".env")) {
+            // Dirty files detection
+            if (lowerPath.startsWith(".vs/") || lowerPath.startsWith(".vscode/") || 
+                lowerPath.contains(".ipynb_checkpoints") || lowerPath.contains("__pycache__") || 
+                lowerPath.startsWith("target/") || lowerPath.startsWith("build/") || 
+                lowerPath.startsWith("dist/") || lowerPath.startsWith("out/") || 
+                lowerPath.startsWith("bin/") || lowerPath.startsWith("node_modules/") || 
+                lowerPath.startsWith("coverage/") || lowerPath.endsWith(".pyc") || 
+                lowerPath.equals(".env") || lowerPath.endsWith(".class") || 
+                lowerPath.endsWith(".log") || lowerPath.endsWith(".tmp") || 
+                lowerPath.endsWith(".bak") || lowerPath.endsWith(".mv.db") || 
+                lowerPath.endsWith(".trace.db") || lowerPath.endsWith(".h2.db")) {
+                
                 hasDirtyFiles = true;
+                explicitDirtyFiles.add(path);
                 issues.add("Dirty file committed: " + path);
             }
         }
+
+        List<String> reasons = new ArrayList<>();
 
         // Base Maintenance
         if (hasReadme) {
             scorePresence += 15;
             evidence.add("README found.");
+            reasons.add("✔ README detected");
         } else {
             issues.add("Missing README.");
+            reasons.add("✘ Missing README");
         }
         
         if (hasGitignore) {
             scorePresence += 15;
             evidence.add(".gitignore found.");
+            reasons.add("✔ .gitignore detected");
         } else {
             issues.add("Missing .gitignore.");
+            reasons.add("✘ Missing .gitignore");
         }
 
         if (hasLicense) {
             scorePresence += 10;
             evidence.add("License found.");
+            reasons.add("✔ License detected");
         }
 
         if (!hasDirtyFiles) {
             scoreQuality += 20;
             evidence.add("No dirty files or secrets (.env, pycache, etc.) committed.");
+            reasons.add("✔ No dirty/generated files committed");
+        } else {
+            reasons.add("✘ Dirty/generated files committed (" + explicitDirtyFiles.size() + ")");
         }
 
         // Context-aware expectations
@@ -105,27 +127,41 @@ public class RepositoryHygieneService {
             scoreCompleteness += 20; // Automatically grant completeness if base is fine
             scoreQuality += 20;
             evidence.add("Portfolio/Personal repo logic applied. Advanced OSS hygiene not required.");
+            reasons.add("✔ Adjusted expectations for personal/portfolio repo");
         } else {
             // Enterprise / standard
             if (hasActions) {
                 scoreCompleteness += 10;
                 evidence.add("CI/CD pipeline (e.g. GitHub Actions) detected.");
+                reasons.add("✔ CI/CD pipeline detected");
+            } else {
+                reasons.add("✘ No CI/CD pipeline detected");
             }
+            
             if (hasSecurity) {
                 scoreCompleteness += 5;
                 evidence.add("Security policy detected.");
+                reasons.add("✔ SECURITY.md detected");
+            } else {
+                reasons.add("✘ No SECURITY.md detected");
             }
+            
             if (hasTemplates) {
                 scoreCompleteness += 10;
                 evidence.add("Issue/PR templates detected.");
+                reasons.add("✔ Issue/PR templates detected");
             }
+            
             if (hasDependabot) {
                 scoreQuality += 10;
                 evidence.add("Dependabot / Dependency management detected.");
+                reasons.add("✔ Dependency management (Dependabot) detected");
             }
+            
             if (hasCodeowners) {
                 scoreQuality += 10;
                 evidence.add("CODEOWNERS detected.");
+                reasons.add("✔ CODEOWNERS detected");
             }
         }
 
@@ -136,6 +172,9 @@ public class RepositoryHygieneService {
         breakdown.put("Completeness", scoreCompleteness);
         breakdown.put("Quality", scoreQuality);
         details.put("Score Breakdown", breakdown);
+        details.put("reasons", reasons);
+        details.put("dirtyFilesFound", hasDirtyFiles);
+        details.put("dirtyFiles", explicitDirtyFiles);
 
         DimensionResult.Builder builder = DimensionResult.builder(status)
                 .score(totalScore)

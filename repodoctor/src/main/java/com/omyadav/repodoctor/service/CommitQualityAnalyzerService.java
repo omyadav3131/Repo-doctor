@@ -55,91 +55,20 @@ public class CommitQualityAnalyzerService {
                         "few changes");
 
         private static final Set<String> ACTION_VERBS = Set.of(
-                        "add",
-                        "added",
-                        "implement",
-                        "implemented",
-                        "create",
-                        "created",
-                        "build",
-                        "built",
-                        "fix",
-                        "fixed",
-                        "resolve",
-                        "resolved",
-                        "remove",
-                        "removed",
-                        "delete",
-                        "deleted",
-                        "refactor",
-                        "refactored",
-                        "optimize",
-                        "optimized",
-                        "improve",
-                        "improved",
-                        "update",
-                        "updated",
-                        "configure",
-                        "configured",
-                        "integrate",
-                        "integrated",
-                        "migrate",
-                        "migrated",
-                        "replace",
-                        "replaced",
-                        "rename",
-                        "renamed",
-                        "handle",
-                        "handled",
-                        "prevent",
-                        "prevented",
-                        "support",
-                        "supported",
-                        "enable",
-                        "enabled",
-                        "disable",
-                        "disabled",
-                        "validate",
-                        "validated",
-                        "design",
-                        "designed",
-                        "deploy",
-                        "deployed",
-                        "document",
-                        "documented",
-                        "revise",
-                        "revised",
-                        "refine",
-                        "refined",
-                        "change",
-                        "changed",
-                        "expose",
-                        "exposed",
-                        "clean",
-                        "cleaned",
-                        "cleanup",
-                        "restore",
-                        "restored",
-                        "move",
-                        "moved",
-                        "reorganize",
-                        "reorganized",
-                        "simplify",
-                        "simplified",
-                        "enhance",
-                        "enhanced",
-                        "correct",
-                        "corrected",
-                        "adjust",
-                        "adjusted",
-                        "introduce",
-                        "introduced",
-                        "extend",
-                        "extended",
-                        "protect",
-                        "protected",
-                        "allow",
-                        "allowed");
+                        "add", "added", "implement", "implemented", "create", "created",
+                        "build", "built", "fix", "fixed", "resolve", "resolved",
+                        "remove", "removed", "delete", "deleted", "refactor", "refactored",
+                        "optimize", "optimized", "improve", "improved", "update", "updated",
+                        "configure", "configured", "integrate", "integrated", "migrate", "migrated",
+                        "replace", "replaced", "rename", "renamed", "handle", "handled",
+                        "prevent", "prevented", "support", "supported", "enable", "enabled",
+                        "disable", "disabled", "validate", "validated", "design", "designed",
+                        "deploy", "deployed", "document", "documented", "revise", "revised",
+                        "refine", "refined", "change", "changed", "expose", "exposed",
+                        "clean", "cleaned", "cleanup", "restore", "restored", "move", "moved",
+                        "reorganize", "reorganized", "simplify", "simplified", "enhance", "enhanced",
+                        "correct", "corrected", "adjust", "adjusted", "introduce", "introduced",
+                        "extend", "extended", "protect", "protected", "allow", "allowed");
 
         private static final Pattern MERGE_PATTERN = Pattern.compile(
                         "(?i)^merge\\s+(pull request|branch|remote-tracking branch|tag).*");
@@ -170,6 +99,8 @@ public class CommitQualityAnalyzerService {
                 List<String> genericCommitMessages = new ArrayList<>();
                 List<String> weakCommitMessages = new ArrayList<>();
                 List<String> commitIssues = new ArrayList<>();
+                List<String> reasons = new ArrayList<>();
+                List<String> evidence = new ArrayList<>();
 
                 Map<String, Integer> qualityMessageFrequency = new LinkedHashMap<>();
 
@@ -241,7 +172,34 @@ public class CommitQualityAnalyzerService {
                                 genericCommitCount,
                                 mergeCommitCount,
                                 conventionalCommitCount,
-                                repeatedMessageCount);
+                                repeatedMessageCount,
+                                repositoryType);
+
+                // Build reasons based on findings
+                if (goodCommitCount > 0) {
+                        double goodRatio = (double) goodCommitCount / nonMergeCount;
+                        if (goodRatio >= 0.7) {
+                                reasons.add("✔ Excellent use of descriptive, action-oriented commits");
+                        } else if (goodRatio >= 0.4) {
+                                reasons.add("✔ Good mix of descriptive commits");
+                        }
+                }
+
+                if (conventionalCommitCount > 0) {
+                        reasons.add("✔ Conventional Commit format detected (" + conventionalCommitCount + " commits)");
+                }
+
+                if (genericCommitCount > 0) {
+                        reasons.add("✘ Generic commit messages detected (" + genericCommitCount + " commits)");
+                }
+                
+                if (repeatedMessageCount > 0) {
+                        reasons.add("✘ Repeated identical commit messages used (" + repeatedMessageCount + " instances)");
+                }
+                
+                if (weakCommitCount > 0 && genericCommitCount == 0) {
+                        reasons.add("✘ Vague commit messages detected (" + weakCommitCount + " commits)");
+                }
 
                 DimensionResult.Builder builder = DimensionResult.builder(status)
                                 .score(score)
@@ -261,7 +219,12 @@ public class CommitQualityAnalyzerService {
                                 .detail("genericCommitMessages", genericCommitMessages)
                                 .detail("weakCommitMessages", weakCommitMessages)
                                 .detail("commitIssues", commitIssues)
+                                .detail("reasons", reasons)
                                 .detail("scopeNote", "Analysis covers the most recent 100 commits.");
+
+                for (String ev : evidence) {
+                        builder.evidence(ev);
+                }
 
                 if (status == AnalysisStatus.PARTIAL) {
                         builder.statusReason("Only " + nonMergeCount
@@ -271,124 +234,73 @@ public class CommitQualityAnalyzerService {
                 return builder.build();
         }
 
-        private CommitType classifyCommit(
-                        String message) {
-
+        private CommitType classifyCommit(String message) {
                 String normalized = normalize(message);
 
-                if (MERGE_PATTERN
-                                .matcher(message)
-                                .matches()) {
-
+                if (MERGE_PATTERN.matcher(message).matches()) {
                         return CommitType.MERGE;
                 }
 
                 if (GENERIC_MESSAGES.contains(normalized)) {
-
                         return CommitType.GENERIC;
                 }
 
-                if (VERSION_ONLY_PATTERN
-                                .matcher(normalized)
-                                .matches()) {
-
+                if (VERSION_ONLY_PATTERN.matcher(normalized).matches()) {
                         return CommitType.GENERIC;
                 }
 
                 if (normalized.length() < 8) {
-
                         return CommitType.GENERIC;
                 }
 
                 if (containsVaguePhrase(normalized)) {
-
                         return CommitType.WEAK;
                 }
 
-                if (CONVENTIONAL_COMMIT_PATTERN
-                                .matcher(message)
-                                .matches()) {
-
+                if (CONVENTIONAL_COMMIT_PATTERN.matcher(message).matches()) {
                         return CommitType.GOOD;
                 }
 
                 if (normalized.length() < 15) {
-
                         return CommitType.WEAK;
                 }
 
                 if (containsActionVerb(normalized)) {
-
                         return CommitType.GOOD;
                 }
 
                 return CommitType.WEAK;
         }
 
-        private boolean containsVaguePhrase(
-                        String normalizedMessage) {
-
+        private boolean containsVaguePhrase(String normalizedMessage) {
                 for (String vaguePhrase : VAGUE_PHRASES) {
-
                         if (normalizedMessage.contains(vaguePhrase)) {
-
                                 return true;
                         }
                 }
-
                 return false;
         }
 
-        private boolean containsActionVerb(
-                        String normalizedMessage) {
-
-                String cleanedMessage = normalizedMessage.replaceAll(
-                                "[^a-z0-9\\s]",
-                                " ");
-
-                String[] words = cleanedMessage
-                                .trim()
-                                .split("\\s+");
-
-                int wordsToInspect = Math.min(
-                                words.length,
-                                5);
-
+        private boolean containsActionVerb(String normalizedMessage) {
+                String cleanedMessage = normalizedMessage.replaceAll("[^a-z0-9\\s]", " ");
+                String[] words = cleanedMessage.trim().split("\\s+");
+                int wordsToInspect = Math.min(words.length, 5);
                 for (int i = 0; i < wordsToInspect; i++) {
-
                         if (ACTION_VERBS.contains(words[i])) {
-
                                 return true;
                         }
                 }
-
                 return false;
         }
 
-        private int calculateRepeatedMessageCount(
-                        Map<String, Integer> messageFrequency,
-                        List<String> commitIssues) {
-
+        private int calculateRepeatedMessageCount(Map<String, Integer> messageFrequency, List<String> commitIssues) {
                 int repeatedMessageCount = 0;
-
                 for (Map.Entry<String, Integer> entry : messageFrequency.entrySet()) {
-
                         int frequency = entry.getValue();
-
-                        if (frequency <= 1) {
-                                continue;
-                        }
-
+                        if (frequency <= 1) continue;
                         repeatedMessageCount += frequency - 1;
-
-                        commitIssues.add(
-                                        "Repeated commit message: "
-                                                        + entry.getKey()
-                                                        + " ("
-                                                        + frequency
-                                                        + " times)");
+                        commitIssues.add("Repeated commit message: " + entry.getKey() + " (" + frequency + " times)");
                 }
-
                 return repeatedMessageCount;
         }
 
@@ -399,7 +311,8 @@ public class CommitQualityAnalyzerService {
                         int genericCommitCount,
                         int mergeCommitCount,
                         int conventionalCommitCount,
-                        int repeatedMessageCount) {
+                        int repeatedMessageCount,
+                        String repositoryType) {
 
                 int qualityRelevantCommits = totalCommits - mergeCommitCount;
 
@@ -407,90 +320,59 @@ public class CommitQualityAnalyzerService {
                         return 0;
                 }
 
-                double weightedQuality = goodCommitCount
-                                + (weakCommitCount * 0.40);
+                boolean isSmallOrStudent = "PORTFOLIO".equals(repositoryType) || "README_ONLY".equals(repositoryType) 
+                    || "HTML_CSS".equals(repositoryType) || "DATASET_REPOSITORY".equals(repositoryType)
+                    || "POWER_BI".equals(repositoryType) || qualityRelevantCommits < 10;
+                
+                // Soften penalties for repositories with very few commits or non-software repos
+                double baseScore = isSmallOrStudent ? 60.0 : 0.0;
+                
+                double weightedQuality = goodCommitCount + (weakCommitCount * 0.40);
+                double qualityRatio = weightedQuality / qualityRelevantCommits;
 
-                double qualityRatio = weightedQuality
-                                / qualityRelevantCommits;
+                int maxPossibleAdditional = 100 - (int)baseScore - 10;
+                int score = (int) Math.round(baseScore + (qualityRatio * maxPossibleAdditional));
 
-                int score = (int) Math.round(
-                                qualityRatio * 85);
-
-                double conventionalRatio = (double) conventionalCommitCount
-                                / qualityRelevantCommits;
-
-                score += (int) Math.round(
-                                conventionalRatio * 10);
+                double conventionalRatio = (double) conventionalCommitCount / qualityRelevantCommits;
+                
+                // If it's a small project, don't penalize much for missing conventional commits
+                if (conventionalRatio > 0) {
+                    score += (int) Math.round(conventionalRatio * 10);
+                } else if (isSmallOrStudent) {
+                    score += 10;
+                }
 
                 if (qualityRelevantCommits >= 5) {
                         score += 5;
                 }
 
-                score -= Math.min(
-                                repeatedMessageCount * 3,
-                                15);
+                score -= Math.min(repeatedMessageCount * 3, 15);
 
-                return Math.max(
-                                0,
-                                Math.min(
-                                                score,
-                                                100));
+                return Math.max(0, Math.min(score, 100));
         }
 
-        private String extractCommitMessage(
-                        Map<String, Object> commitData) {
-
-                if (commitData == null) {
-                        return null;
-                }
-
+        private String extractCommitMessage(Map<String, Object> commitData) {
+                if (commitData == null) return null;
                 Object commitObject = commitData.get("commit");
-
-                if (!(commitObject instanceof Map<?, ?> commitMap)) {
-
-                        return null;
-                }
-
+                if (!(commitObject instanceof Map<?, ?> commitMap)) return null;
                 Object message = commitMap.get("message");
-
-                if (message == null) {
-                        return null;
-                }
-
+                if (message == null) return null;
                 return message.toString();
         }
 
-        private String extractFirstLine(
-                        String message) {
-
-                return message
-                                .lines()
-                                .findFirst()
-                                .orElse("")
-                                .trim();
+        private String extractFirstLine(String message) {
+                return message.lines().findFirst().orElse("").trim();
         }
 
-        private String normalize(
-                        String message) {
-
-                return message
-                                .toLowerCase(Locale.ROOT)
-                                .trim()
-                                .replaceAll("\\s+", " ");
+        private String normalize(String message) {
+                return message.toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
         }
 
-        private double roundTwoDecimals(
-                        double value) {
-
-                return Math.round(
-                                value * 100.0) / 100.0;
+        private double roundTwoDecimals(double value) {
+                return Math.round(value * 100.0) / 100.0;
         }
 
         private enum CommitType {
-
-                GOOD,
-                WEAK,
-                GENERIC,
-                MERGE
+                GOOD, WEAK, GENERIC, MERGE
         }
 }

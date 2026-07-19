@@ -37,6 +37,7 @@ public class ProjectStructureAnalyzerService {
 
         List<String> evidence = new ArrayList<>();
         Map<String, Object> details = new HashMap<>();
+        List<String> reasons = new ArrayList<>();
         
         long srcFiles = countFiles(tree, "src/");
         long testFiles = countFiles(tree, "test/") + countFiles(tree, "tests/") + countFiles(tree, "spec/");
@@ -53,16 +54,23 @@ public class ProjectStructureAnalyzerService {
         if (hasSrcDir || hasLibDir) {
             scorePresence += 15;
             evidence.add("Source code directory detected.");
+            reasons.add("✔ Source directory detected");
+        } else {
+            reasons.add("✘ No dedicated source directory found");
         }
         
         if (hasTestDir) {
             scorePresence += 10;
             evidence.add("Test directory detected.");
+            reasons.add("✔ Test directory detected");
+        } else {
+            reasons.add("✘ No test directory found");
         }
         
         if (configFiles > 0) {
             scorePresence += 5;
             evidence.add("Configuration isolated in dedicated directories.");
+            reasons.add("✔ Config/GitHub directory isolated");
         }
         
         if (docsFiles > 0) {
@@ -74,10 +82,14 @@ public class ProjectStructureAnalyzerService {
             if (countFiles(tree, "src/main/java/") > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Standard Java/Spring Boot layout (src/main/java) followed.");
+                reasons.add("✔ Standard Spring Boot source structure (src/main/java)");
+            } else {
+                reasons.add("✘ Missing standard Java source structure");
             }
             if (countFiles(tree, "src/test/java/") > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Standard Java/Spring Boot test layout (src/test/java) followed.");
+                reasons.add("✔ Standard Spring Boot test structure (src/test/java)");
             }
             
             // Quality - are there nested packages?
@@ -90,6 +102,9 @@ public class ProjectStructureAnalyzerService {
             if (nestedJava > 0) {
                 scoreQuality += 35;
                 evidence.add("Proper package nesting (com/org) detected.");
+                reasons.add("✔ Professional package nesting detected");
+            } else {
+                reasons.add("✘ Flat package hierarchy");
             }
             
         } else if ("REACT".equals(repositoryType) || "VUE".equals(repositoryType) || "ANGULAR".equals(repositoryType) || "NODE".equals(repositoryType)) {
@@ -99,6 +114,7 @@ public class ProjectStructureAnalyzerService {
             if (publicFiles > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Static assets/public directory isolated.");
+                reasons.add("✔ Public/assets directory isolated");
             }
             
             // Quality - module separation
@@ -106,6 +122,9 @@ public class ProjectStructureAnalyzerService {
             if (components > 0) {
                 scoreQuality += 35;
                 evidence.add("Logical module separation detected in frontend structure.");
+                reasons.add("✔ Clear module separation (components, utils, etc)");
+            } else {
+                reasons.add("✘ Flat component hierarchy");
             }
         } else if ("PYTHON".equals(repositoryType) || "DJANGO".equals(repositoryType)) {
             if (hasSrcDir || hasLibDir || hasTestDir) {
@@ -115,16 +134,19 @@ public class ProjectStructureAnalyzerService {
             if (initPyCount > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Python module structure (__init__.py) followed.");
+                reasons.add("✔ Standard Python module structure");
             }
             if (initPyCount >= 3) {
                 scoreQuality += 35;
                 evidence.add("Good Python package nesting detected.");
+                reasons.add("✔ Nested Python packages");
             }
         } else if ("JUPYTER_NOTEBOOK".equals(repositoryType) || "DOCUMENTATION_REPOSITORY".equals(repositoryType)) {
             // simpler expectations
             scoreCompleteness += 20;
             scoreQuality += 30; // Implicitly okay if files are logically grouped
             evidence.add("Flat or simple structure acceptable for Notebooks/Docs.");
+            reasons.add("✔ Structure is appropriate for Notebooks/Docs");
             if (docsFiles > 0 || srcFiles > 0) {
                 scoreCompleteness += 10;
                 scoreQuality += 5;
@@ -134,6 +156,7 @@ public class ProjectStructureAnalyzerService {
             scoreCompleteness = 0;
             scoreQuality = 0;
             evidence.add("No project structure expected or present for a single-file or empty repository.");
+            reasons.add("✔ No structure needed for empty/README-only repo");
         } else {
             // General / Unknown
             if (hasSrcDir || hasLibDir) scoreCompleteness += 15;
@@ -154,6 +177,7 @@ public class ProjectStructureAnalyzerService {
         if (totalBlobs < 5 && totalScore > 50 && !"DOCUMENTATION_REPOSITORY".equals(repositoryType)) {
             totalScore = 20;
             evidence.add("Score reduced due to severe lack of actual files.");
+            reasons.add("✘ Severe lack of source files reduces structural score");
         }
 
         boolean truncated = Boolean.TRUE.equals(repositoryTree.get("truncated"));
@@ -184,11 +208,17 @@ public class ProjectStructureAnalyzerService {
                     && !lowerPath.equals(".gitignore") && !lowerPath.equals("license")
                     && !lowerPath.equals("pom.xml") && !lowerPath.equals("package.json")
                     && !lowerPath.equals("build.gradle") && !lowerPath.equals("settings.gradle")
+                    && !lowerPath.equals("gradlew") && !lowerPath.equals("gradlew.bat")
+                    && !lowerPath.equals("mvnw") && !lowerPath.equals("mvnw.cmd")
                     && !lowerPath.startsWith(".git") && !lowerPath.endsWith(".yml") 
                     && !lowerPath.endsWith(".yaml") && !lowerPath.endsWith(".toml")
                     && !lowerPath.equals("requirements.txt") && !lowerPath.equals("setup.py")
                     && !lowerPath.equals("manage.py") && !lowerPath.equals("dockerfile")
-                    && !lowerPath.equals("angular.json") && !lowerPath.equals("tsconfig.json")) {
+                    && !lowerPath.equals("angular.json") && !lowerPath.equals("tsconfig.json")
+                    && !lowerPath.equals("vite.config.js") && !lowerPath.equals("vite.config.ts")
+                    && !lowerPath.equals("webpack.config.js") && !lowerPath.endsWith(".pbix")
+                    && !lowerPath.endsWith(".ipynb") && !lowerPath.endsWith(".pkl")
+                    && !lowerPath.endsWith(".csv") && !lowerPath.endsWith(".jsonl")) {
                     rootClutter.add(path);
                 }
             }
@@ -213,10 +243,21 @@ public class ProjectStructureAnalyzerService {
                 && !entry.getKey().equals("index.ts") && !entry.getKey().equals("index.html")
                 && !entry.getKey().equals("__init__.py") && !entry.getKey().equals("readme.md")
                 && !entry.getKey().equals(".gitignore") && !entry.getKey().equals("pom.xml")
-                && !entry.getKey().equals("package.json") && !entry.getKey().equals("build.gradle")) {
+                && !entry.getKey().equals("package.json") && !entry.getKey().equals("build.gradle")
+                && !entry.getKey().equals("application.properties") && !entry.getKey().equals("application.yml")
+                && !entry.getKey().equals("messages.properties") && !entry.getKey().equals("setup.py")
+                && !entry.getKey().equals("requirements.txt") && !entry.getKey().equals("dockerfile")
+                && !entry.getKey().endsWith(".csv") && !entry.getKey().endsWith(".ipynb")) {
                 duplicateLookingFiles.put(entry.getKey(), entry.getValue());
                 duplicateLookingFileCount += entry.getValue().size();
             }
+        }
+
+        if (rootClutter.size() > 0) {
+            reasons.add("✘ Root directory is cluttered (" + rootClutter.size() + " files)");
+        }
+        if (duplicateLookingFileCount > 0) {
+            reasons.add("✘ Potential duplicate files detected (" + duplicateLookingFileCount + ")");
         }
 
         details.put("rootClutterCount", rootClutter.size());
@@ -225,6 +266,7 @@ public class ProjectStructureAnalyzerService {
         details.put("duplicateLookingFiles", duplicateLookingFiles);
         details.put("suspiciousNamedFileCount", suspiciousNamedFiles.size());
         details.put("suspiciousNamedFiles", suspiciousNamedFiles);
+        details.put("reasons", reasons);
 
         DimensionResult.Builder builder = DimensionResult.builder(status)
                 .score(totalScore)
