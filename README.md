@@ -142,5 +142,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 <div align="center">
-<i>Developed by Om Nandkishor Yadav.</i>
+<i>Developed by Om Yadav.</i>
 </div>
