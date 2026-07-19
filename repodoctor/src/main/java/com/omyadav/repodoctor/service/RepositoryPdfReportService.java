@@ -138,8 +138,16 @@ public class RepositoryPdfReportService {
         rightCell.addElement(new Paragraph("GRADE: " + analysis.getGrade(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, TEXT_MAIN)));
         rightCell.addElement(new Paragraph("HEALTH: " + health, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, getHealthColor(health))));
         String repositoryType = "UNKNOWN";
-        if (analysis.getAnalysisSnapshot() != null && analysis.getAnalysisSnapshot().get("repositoryType") != null) {
-            repositoryType = analysis.getAnalysisSnapshot().get("repositoryType").toString();
+        if (analysis.getAnalysisSnapshot() != null) {
+            Object overallObj = analysis.getAnalysisSnapshot().get("overall");
+            if (overallObj instanceof Map) {
+                Object typeObj = ((Map<?, ?>) overallObj).get("repositoryType");
+                if (typeObj != null) {
+                    repositoryType = typeObj.toString();
+                }
+            } else if (analysis.getAnalysisSnapshot().get("repositoryType") != null) {
+                repositoryType = analysis.getAnalysisSnapshot().get("repositoryType").toString();
+            }
         }
         rightCell.addElement(new Paragraph("TYPE: " + formatLabel(repositoryType), BODY_FONT));
         rightCell.addElement(new Paragraph("DATE: " + (analysis.getAnalysisDate() != null

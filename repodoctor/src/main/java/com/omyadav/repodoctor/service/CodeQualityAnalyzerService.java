@@ -7,6 +7,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.stereotype.Service;
 
 import com.omyadav.repodoctor.analysis.AnalysisStatus;
@@ -16,12 +19,16 @@ import com.omyadav.repodoctor.analysis.DimensionResult;
 public class CodeQualityAnalyzerService {
 
     private final RepositoryContentService repositoryContentService;
+    private final ExcludedPathService excludedPathService;
 
     private static final Pattern TODO_PATTERN = Pattern.compile("(?i)\\b(TODO|FIXME|HACK)\\b");
     private static final Pattern SECRET_PATTERN = Pattern.compile("(?i)(api[_-]?key|secret|password)\\s*[=:]\\s*([\"'])([^\"'\\r\\n]{8,})\\2");
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CodeQualityAnalyzerService(RepositoryContentService repositoryContentService) {
+    public CodeQualityAnalyzerService(RepositoryContentService repositoryContentService, ExcludedPathService excludedPathService) {
         this.repositoryContentService = repositoryContentService;
+        this.excludedPathService = excludedPathService;
     }
 
     public DimensionResult analyzeCodeQuality(String owner, String repository, String branch, List<String> usefulFiles, String repositoryType) {
@@ -70,6 +77,11 @@ public class CodeQualityAnalyzerService {
             String content = parts[1];
             
             if (content.isBlank()) continue;
+            
+            if (file.toLowerCase(Locale.ROOT).endsWith(".ipynb")) {
+                content = extractCodeFromNotebook(content);
+                if (content.isEmpty()) continue; // Skip malformed or empty notebooks
+            }
 
             analyzedCount++;
             String[] lines = content.split("\\R");
@@ -102,9 +114,11 @@ public class CodeQualityAnalyzerService {
                 possibleSecretFiles.add(file);
             }
             
-            if (content.contains("console.log(") || content.contains("System.out.println(") || content.contains("print(")) {
-                debugStatementCount++;
-                debugStatementFiles.add(file);
+            if (!file.toLowerCase(Locale.ROOT).endsWith(".ipynb")) {
+                if (content.contains("console.log(") || content.contains("System.out.println(") || content.contains("print(")) {
+                    debugStatementCount++;
+                    debugStatementFiles.add(file);
+                }
             }
         }
 
@@ -198,9 +212,7 @@ public class CodeQualityAnalyzerService {
             String lower = f.toLowerCase(Locale.ROOT).replace("\\", "/");
             
             // Ignore vendors, builds, minified
-            if (lower.contains("node_modules/") || lower.contains("vendor/") || lower.contains("venv/") || lower.contains(".venv/")) continue;
-            if (lower.contains("dist/") || lower.contains("build/") || lower.contains("target/") || lower.contains("out/")) continue;
-            if (lower.contains("coverage/")) continue;
+            if (excludedPathService.isVendorOrBuildPath(f)) continue;
             if (lower.endsWith(".min.js") || lower.endsWith(".min.css") || lower.endsWith("-min.js")) continue;
             if (lower.endsWith(".d.ts")) continue; // TS declarations aren't logic
 
@@ -208,7 +220,7 @@ public class CodeQualityAnalyzerService {
                 lower.endsWith(".jsx") || lower.endsWith(".tsx") || lower.endsWith(".go") || lower.endsWith(".cs") ||
                 lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".h") || lower.endsWith(".hpp") ||
                 lower.endsWith(".php") || lower.endsWith(".rb") || lower.endsWith(".dart") || lower.endsWith(".swift") || 
-                lower.endsWith(".kt")) {
+                lower.endsWith(".kt") || lower.endsWith(".ipynb")) {
                 valid.add(f);
             }
         }
@@ -218,5 +230,34 @@ public class CodeQualityAnalyzerService {
             return valid.subList(0, 50);
         }
         return valid;
+    }
+
+    private String extractCodeFromNotebook(String notebookJsonContent) {
+        try {
+            JsonNode root = objectMapper.readTree(notebookJsonContent);
+            JsonNode cells = root.path("cells");
+            if (cells.isMissingNode() || !cells.isArray()) {
+                return "";
+            }
+
+            StringBuilder codeBuilder = new StringBuilder();
+            for (JsonNode cell : cells) {
+                if ("code".equals(cell.path("cell_type").asText())) {
+                    JsonNode source = cell.path("source");
+                    if (source.isArray()) {
+                        for (JsonNode line : source) {
+                            codeBuilder.append(line.asText());
+                        }
+                        codeBuilder.append("\n");
+                    } else if (source.isTextual()) {
+                        codeBuilder.append(source.asText()).append("\n");
+                    }
+                }
+            }
+            return codeBuilder.toString();
+        } catch (Exception e) {
+            // Malformed JSON or other error, silently skip
+            return "";
+        }
     }
 }

@@ -14,6 +14,12 @@ import java.util.Map;
 @Service
 public class RepositoryHygieneService {
 
+    private final ExcludedPathService excludedPathService;
+
+    public RepositoryHygieneService(ExcludedPathService excludedPathService) {
+        this.excludedPathService = excludedPathService;
+    }
+
     public DimensionResult analyzeHygiene(Map<String, Object> repositoryTree, String repositoryType) {
 
         Object treeObj = repositoryTree.get("tree");
@@ -53,6 +59,7 @@ public class RepositoryHygieneService {
 
         boolean hasDirtyFiles = false;
         List<String> explicitDirtyFiles = new ArrayList<>();
+        Map<String, Integer> bulkDirtyDirectories = new HashMap<>();
 
         for (Map<String, Object> item : tree) {
             String path = item.get("path").toString();
@@ -69,12 +76,11 @@ public class RepositoryHygieneService {
             if (lowerPath.equals("codeowners") || lowerPath.equals(".github/codeowners")) hasCodeowners = true;
 
             // Dirty files detection
-            if (lowerPath.startsWith(".vs/") || lowerPath.startsWith(".vscode/") || 
-                lowerPath.contains(".ipynb_checkpoints") || lowerPath.contains("__pycache__") || 
-                lowerPath.startsWith("target/") || lowerPath.startsWith("build/") || 
-                lowerPath.startsWith("dist/") || lowerPath.startsWith("out/") || 
-                lowerPath.startsWith("bin/") || lowerPath.startsWith("node_modules/") || 
-                lowerPath.startsWith("coverage/") || lowerPath.endsWith(".pyc") || 
+            String matchedVendorDir = excludedPathService.getMatchedVendorOrBuildPath(path);
+            if (matchedVendorDir != null) {
+                hasDirtyFiles = true;
+                bulkDirtyDirectories.put(matchedVendorDir, bulkDirtyDirectories.getOrDefault(matchedVendorDir, 0) + 1);
+            } else if (lowerPath.endsWith(".pyc") || 
                 lowerPath.equals(".env") || lowerPath.endsWith(".class") || 
                 lowerPath.endsWith(".log") || lowerPath.endsWith(".tmp") || 
                 lowerPath.endsWith(".bak") || lowerPath.endsWith(".mv.db") || 
@@ -84,6 +90,12 @@ public class RepositoryHygieneService {
                 explicitDirtyFiles.add(path);
                 issues.add("Dirty file committed: " + path);
             }
+        }
+
+        for (Map.Entry<String, Integer> entry : bulkDirtyDirectories.entrySet()) {
+            String msg = entry.getKey() + "/ (" + entry.getValue() + " files committed)";
+            explicitDirtyFiles.add(msg);
+            issues.add("Bulk dirty directory committed: " + msg);
         }
 
         List<String> reasons = new ArrayList<>();

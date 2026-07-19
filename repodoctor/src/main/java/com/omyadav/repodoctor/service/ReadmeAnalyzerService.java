@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -58,31 +59,51 @@ public class ReadmeAnalyzerService {
             boolean hasContributing = hasHeadingWithContent(content, "contributing", "license", "author", "future work");
             boolean hasApiDocs = hasHeadingWithContent(content, "api", "docs", "documentation", "examples", "notebook guide");
 
-            Map<String, Object> readmeChecks = new HashMap<>();
-            readmeChecks.put("Overview / Business Problem", hasOverview);
-            readmeChecks.put("Installation instructions", hasInstallation);
-            readmeChecks.put("Usage examples", hasUsage);
-            readmeChecks.put("Configuration details", hasConfig);
-            readmeChecks.put("Architecture / Features", hasFeatures || hasArchitecture);
-            readmeChecks.put("Screenshots / Dashboards", hasScreenshots);
-            readmeChecks.put("Results / Model Evaluation", hasResults);
-            readmeChecks.put("Contributing / License", hasContributing);
-            readmeChecks.put("API / Documentation", hasApiDocs);
-            details.put("readmeChecks", readmeChecks);
+            boolean expectScreenshots = false;
+            boolean expectResults = false;
+            
+            if (repositoryType != null) {
+                String type = repositoryType.toUpperCase(java.util.Locale.ROOT);
+                if (type.equals("REACT") || type.equals("VUE") || type.equals("ANGULAR") 
+                    || type.equals("FLUTTER") || type.equals("PORTFOLIO") || type.equals("HTML_CSS")) {
+                    expectScreenshots = true;
+                }
+                if (type.equals("MACHINE_LEARNING") || type.equals("DATA_SCIENCE") 
+                    || type.equals("JUPYTER_NOTEBOOK") || type.equals("DATASET_REPOSITORY")) {
+                    expectResults = true;
+                }
+            }
 
-            if (hasOverview) { scoreCompleteness += 5; evidence.add("Overview/Business Problem section found."); reasons.add("✔ Overview provided"); }
-            if (hasInstallation) { scoreCompleteness += 10; evidence.add("Installation section found."); reasons.add("✔ Installation instructions provided"); }
-            else { reasons.add("✘ Missing installation instructions"); }
+            Map<String, Boolean> activeChecks = new LinkedHashMap<>();
+            activeChecks.put("Overview / Business Problem", hasOverview);
+            activeChecks.put("Installation instructions", hasInstallation);
+            activeChecks.put("Usage examples", hasUsage);
+            activeChecks.put("Configuration details", hasConfig);
+            activeChecks.put("Architecture / Features", hasFeatures || hasArchitecture);
+            activeChecks.put("Contributing / License", hasContributing);
+            activeChecks.put("API / Documentation", hasApiDocs);
             
-            if (hasUsage) { scoreCompleteness += 10; evidence.add("Usage section found."); reasons.add("✔ Usage examples provided"); }
-            else { reasons.add("✘ Missing usage instructions"); }
+            if (expectScreenshots) {
+                activeChecks.put("Screenshots / Dashboards", hasScreenshots);
+            }
+            if (expectResults) {
+                activeChecks.put("Results / Model Evaluation", hasResults);
+            }
+
+            double scorePerCheck = 40.0 / activeChecks.size();
+            for (Map.Entry<String, Boolean> entry : activeChecks.entrySet()) {
+                if (entry.getValue()) {
+                    scoreCompleteness += scorePerCheck;
+                    evidence.add(entry.getKey() + " section found.");
+                    reasons.add("✔ " + entry.getKey() + " documented");
+                } else {
+                    if (entry.getKey().equals("Installation instructions") || entry.getKey().equals("Usage examples")) {
+                        reasons.add("✘ Missing " + entry.getKey().toLowerCase(java.util.Locale.ROOT));
+                    }
+                }
+            }
             
-            if (hasFeatures || hasArchitecture) { scoreCompleteness += 5; evidence.add("Features/Architecture section found."); reasons.add("✔ Project features/architecture documented"); }
-            if (hasConfig) { scoreCompleteness += 5; evidence.add("Configuration section found."); reasons.add("✔ Configuration details documented"); }
-            if (hasScreenshots) { scoreCompleteness += 5; evidence.add("Screenshots/Dashboard section found."); reasons.add("✔ Visual documentation provided"); }
-            if (hasResults) { scoreCompleteness += 5; evidence.add("Results/Evaluation section found."); reasons.add("✔ Results/Evaluation documented"); }
-            if (hasContributing) { scoreCompleteness += 5; evidence.add("Contributing/License section found."); reasons.add("✔ Contributing/License guidelines provided"); }
-            if (hasApiDocs) { scoreCompleteness += 5; evidence.add("API/Docs/Examples section found."); reasons.add("✔ API/Documentation references provided"); }
+            details.put("readmeChecks", activeChecks);
 
             // Quality (Max 30)
             if (content.length() >= 500) { scoreQuality += 5; }

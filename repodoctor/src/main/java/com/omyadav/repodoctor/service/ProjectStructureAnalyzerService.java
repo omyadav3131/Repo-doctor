@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,24 @@ import com.omyadav.repodoctor.analysis.DimensionResult;
 
 @Service
 public class ProjectStructureAnalyzerService {
+
+    private static final Set<String> KNOWN_MODULE_FILES = Set.of(
+        "__init__.py", "routes.py", "models.py", "views.py", "forms.py", "urls.py", 
+        "admin.py", "serializers.py", "tests.py", "conftest.py",
+        "package-info.java", "module-info.java",
+        "index.js", "index.ts", "index.html",
+        "mod.rs", "lib.rs",
+        "main.go",
+        "readme.md", ".gitignore", "pom.xml", "package.json", "build.gradle",
+        "application.properties", "application.yml", "messages.properties",
+        "setup.py", "requirements.txt", "dockerfile", "cargo.toml", "go.mod"
+    );
+
+    private final ExcludedPathService excludedPathService;
+
+    public ProjectStructureAnalyzerService(ExcludedPathService excludedPathService) {
+        this.excludedPathService = excludedPathService;
+    }
 
     public DimensionResult analyzeStructure(Map<String, Object> repositoryTree, String repositoryType) {
         if (repositoryTree == null) {
@@ -151,6 +170,59 @@ public class ProjectStructureAnalyzerService {
                 scoreCompleteness += 10;
                 scoreQuality += 5;
             }
+        } else if ("MACHINE_LEARNING".equals(repositoryType) || "DATA_SCIENCE".equals(repositoryType) || "DATASET_REPOSITORY".equals(repositoryType)) {
+            long dataSources = countFiles(tree, "notebooks/") + countFiles(tree, "data/") + countFiles(tree, "models/") + countFiles(tree, "scripts/") + srcFiles;
+            if (dataSources > 0) {
+                scoreCompleteness += 20;
+                evidence.add("Data Science structure (notebooks/data/models/scripts) detected.");
+                reasons.add("✔ Standard Data Science folder organization");
+            }
+            long notebooksCount = countFilesEndsWith(tree, ".ipynb");
+            if (notebooksCount > 2) {
+                scoreQuality += 10;
+                evidence.add("Organized notebooks found.");
+                reasons.add("✔ Good notebook organization");
+            }
+            if (countFilesEndsWith(tree, "requirements.txt") > 0 || countFilesEndsWith(tree, "environment.yml") > 0) {
+                scoreCompleteness += 10;
+                scoreQuality += 10;
+                evidence.add("Environment config present.");
+                reasons.add("✔ Environment configuration present");
+            }
+            scoreQuality += 15; // implicitly okay if basic elements met
+        } else if ("POWER_BI".equals(repositoryType)) {
+            long pbixCount = countFilesEndsWith(tree, ".pbix");
+            if (pbixCount > 0) {
+                scorePresence += 15; // compensate for no src/
+                scoreCompleteness += 20;
+                scoreQuality += 35;
+                evidence.add("PowerBI repository structure acceptable (PBIX files present).");
+                reasons.add("✔ Valid PowerBI repository structure");
+            }
+        } else if ("FLUTTER".equals(repositoryType)) {
+            if (libFiles > 0) scoreCompleteness += 15;
+            if (testFiles > 0) scoreCompleteness += 15;
+            
+            long modules = countFiles(tree, "lib/screens/") + countFiles(tree, "lib/models/") + countFiles(tree, "lib/widgets/");
+            if (modules > 0) {
+                scoreQuality += 35;
+                evidence.add("Logical module separation detected in Flutter structure.");
+                reasons.add("✔ Clear module separation (screens, widgets, models)");
+            } else {
+                reasons.add("✘ Flat lib directory hierarchy");
+            }
+        } else if ("CPLUSPLUS".equals(repositoryType)) {
+            if (srcFiles > 0) scoreCompleteness += 15;
+            if (countFiles(tree, "include/") > 0) {
+                scoreCompleteness += 15;
+                evidence.add("C++ include directory detected.");
+                reasons.add("✔ C++ header separation (include/)");
+            }
+            if (countFilesEndsWith(tree, "cmakelists.txt") > 0 || countFilesEndsWith(tree, "makefile") > 0) {
+                scoreQuality += 35;
+                evidence.add("C++ build configuration (CMake/Makefile) present.");
+                reasons.add("✔ Standard C++ build config present");
+            }
         } else if ("README_ONLY".equals(repositoryType) || "EMPTY".equals(repositoryType)) {
             scorePresence = 0;
             scoreCompleteness = 0;
@@ -197,28 +269,26 @@ public class ProjectStructureAnalyzerService {
         for (Map<String, Object> item : tree) {
             if (!isBlob(item)) continue;
             String path = item.get("path").toString();
+            
+            if (excludedPathService.isVendorOrBuildPath(path)) {
+                continue;
+            }
+            
             String lowerPath = path.toLowerCase(Locale.ROOT);
             String[] parts = path.split("/");
             String filename = parts[parts.length - 1];
             String lowerFilename = filename.toLowerCase(Locale.ROOT);
             
+            // Extract basename for suspicious checks (remove extension)
+            String baseName = lowerFilename;
+            int lastDot = lowerFilename.lastIndexOf('.');
+            if (lastDot > 0) {
+                baseName = lowerFilename.substring(0, lastDot);
+            }
+            
             // Root clutter
             if (parts.length == 1) {
-                if (!lowerPath.equals("readme.md") && !lowerPath.equals("readme") 
-                    && !lowerPath.equals(".gitignore") && !lowerPath.equals("license")
-                    && !lowerPath.equals("pom.xml") && !lowerPath.equals("package.json")
-                    && !lowerPath.equals("build.gradle") && !lowerPath.equals("settings.gradle")
-                    && !lowerPath.equals("gradlew") && !lowerPath.equals("gradlew.bat")
-                    && !lowerPath.equals("mvnw") && !lowerPath.equals("mvnw.cmd")
-                    && !lowerPath.startsWith(".git") && !lowerPath.endsWith(".yml") 
-                    && !lowerPath.endsWith(".yaml") && !lowerPath.endsWith(".toml")
-                    && !lowerPath.equals("requirements.txt") && !lowerPath.equals("setup.py")
-                    && !lowerPath.equals("manage.py") && !lowerPath.equals("dockerfile")
-                    && !lowerPath.equals("angular.json") && !lowerPath.equals("tsconfig.json")
-                    && !lowerPath.equals("vite.config.js") && !lowerPath.equals("vite.config.ts")
-                    && !lowerPath.equals("webpack.config.js") && !lowerPath.endsWith(".pbix")
-                    && !lowerPath.endsWith(".ipynb") && !lowerPath.endsWith(".pkl")
-                    && !lowerPath.endsWith(".csv") && !lowerPath.endsWith(".jsonl")) {
+                if (!isSafeRootFile(lowerPath)) {
                     rootClutter.add(path);
                 }
             }
@@ -226,30 +296,21 @@ public class ProjectStructureAnalyzerService {
             // Duplicates
             filenameToPaths.computeIfAbsent(lowerFilename, k -> new ArrayList<>()).add(path);
             
-            // Suspicious names
-            if (lowerFilename.contains("v2") || lowerFilename.contains("final") 
-                || lowerFilename.contains("copy") || lowerFilename.contains("backup")) {
-                // Ignore safe terms like 'copy' inside package names, focus on exact words
-                if (lowerFilename.matches(".*\\b(v2|final|copy|backup)\\b.*") && !lowerFilename.endsWith(".txt")) {
-                    suspiciousNamedFiles.add(path);
-                }
+            // Suspicious names (must act as suffix on the base name)
+            if (baseName.matches(".*[-_ ](v2|final|copy|backup)$")) {
+                suspiciousNamedFiles.add(path);
             }
         }
         
         Map<String, List<String>> duplicateLookingFiles = new HashMap<>();
         int duplicateLookingFileCount = 0;
         for (Map.Entry<String, List<String>> entry : filenameToPaths.entrySet()) {
-            if (entry.getValue().size() > 1 && !entry.getKey().equals("index.js") 
-                && !entry.getKey().equals("index.ts") && !entry.getKey().equals("index.html")
-                && !entry.getKey().equals("__init__.py") && !entry.getKey().equals("readme.md")
-                && !entry.getKey().equals(".gitignore") && !entry.getKey().equals("pom.xml")
-                && !entry.getKey().equals("package.json") && !entry.getKey().equals("build.gradle")
-                && !entry.getKey().equals("application.properties") && !entry.getKey().equals("application.yml")
-                && !entry.getKey().equals("messages.properties") && !entry.getKey().equals("setup.py")
-                && !entry.getKey().equals("requirements.txt") && !entry.getKey().equals("dockerfile")
-                && !entry.getKey().endsWith(".csv") && !entry.getKey().endsWith(".ipynb")) {
-                duplicateLookingFiles.put(entry.getKey(), entry.getValue());
-                duplicateLookingFileCount += entry.getValue().size();
+            if (entry.getValue().size() > 1 && !isWhitelistDuplicate(entry.getKey())) {
+                List<String> actualDuplicates = filterLegitimateVariants(entry.getValue());
+                if (actualDuplicates.size() > 1) {
+                    duplicateLookingFiles.put(entry.getKey(), actualDuplicates);
+                    duplicateLookingFileCount += actualDuplicates.size();
+                }
             }
         }
 
@@ -305,5 +366,122 @@ public class ProjectStructureAnalyzerService {
 
     private boolean isBlob(Map<String, Object> item) {
         return "blob".equals(item.get("type"));
+    }
+
+    private boolean isSafeRootFile(String lowerPath) {
+        if (lowerPath.equals("readme.md") || lowerPath.equals("readme") || lowerPath.equals(".gitignore")) return true;
+        if (lowerPath.startsWith("license") || lowerPath.startsWith("copying")) return true;
+        
+        if (lowerPath.equals("pom.xml") || lowerPath.equals("package.json") || lowerPath.equals("build.gradle") 
+            || lowerPath.equals("settings.gradle") || lowerPath.equals("gradlew") || lowerPath.equals("gradlew.bat")
+            || lowerPath.equals("mvnw") || lowerPath.equals("mvnw.cmd") || lowerPath.startsWith(".git")
+            || lowerPath.endsWith(".yml") || lowerPath.endsWith(".yaml") || lowerPath.endsWith(".toml")
+            || lowerPath.equals("requirements.txt") || lowerPath.equals("setup.py") || lowerPath.equals("manage.py")
+            || lowerPath.equals("dockerfile") || lowerPath.equals("angular.json") || lowerPath.equals("tsconfig.json")
+            || lowerPath.equals("vite.config.js") || lowerPath.equals("vite.config.ts") || lowerPath.equals("webpack.config.js")
+            || lowerPath.endsWith(".pbix") || lowerPath.endsWith(".ipynb") || lowerPath.endsWith(".pkl")
+            || lowerPath.endsWith(".csv") || lowerPath.endsWith(".jsonl")) {
+            return true;
+        }
+        
+        if (lowerPath.equals("codeowners") || lowerPath.equals("contributing.md") || lowerPath.equals("code_of_conduct.md")
+            || lowerPath.equals("security.md") || lowerPath.equals("changelog.md")) {
+            return true;
+        }
+        
+        if (lowerPath.startsWith(".") && lowerPath.matches("^\\..*(rc|ignore|config|attributes)($|\\..+)")) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean isWhitelistDuplicate(String filename) {
+        if (KNOWN_MODULE_FILES.contains(filename)) {
+            return true;
+        }
+        return filename.endsWith(".csv") || filename.endsWith(".ipynb");
+    }
+
+    private List<String> filterLegitimateVariants(List<String> paths) {
+        List<String> flagged = new ArrayList<>();
+        boolean[] isDuplicate = new boolean[paths.size()];
+        
+        for (int i = 0; i < paths.size(); i++) {
+            for (int j = i + 1; j < paths.size(); j++) {
+                if (!isLegitimateVariantPair(paths.get(i), paths.get(j))) {
+                    isDuplicate[i] = true;
+                    isDuplicate[j] = true;
+                }
+            }
+        }
+        
+        for (int i = 0; i < paths.size(); i++) {
+            if (isDuplicate[i]) {
+                flagged.add(paths.get(i));
+            }
+        }
+        return flagged;
+    }
+
+    private boolean isLegitimateVariantPair(String p1, String p2) {
+        String[] parts1 = p1.toLowerCase(Locale.ROOT).split("/");
+        String[] parts2 = p2.toLowerCase(Locale.ROOT).split("/");
+        
+        if (isMonorepoVariant(parts1, parts2)) {
+            return true;
+        }
+        
+        if (parts1.length == parts2.length) {
+            int diffCount = 0;
+            String diffSeg1 = "";
+            String diffSeg2 = "";
+            for (int i = 0; i < parts1.length; i++) {
+                if (!parts1[i].equals(parts2[i])) {
+                    diffCount++;
+                    diffSeg1 = parts1[i];
+                    diffSeg2 = parts2[i];
+                }
+            }
+            if (diffCount == 1) {
+                if (isKnownVariantSegment(diffSeg1) || isKnownVariantSegment(diffSeg2)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    private boolean isMonorepoVariant(String[] parts1, String[] parts2) {
+        int idx1 = -1;
+        int idx2 = -1;
+        for (int i = 0; i < parts1.length - 2; i++) {
+            if (parts1[i].equals("packages") || parts1[i].equals("apps") || parts1[i].equals("modules")) {
+                idx1 = i; break;
+            }
+        }
+        for (int i = 0; i < parts2.length - 2; i++) {
+            if (parts2[i].equals("packages") || parts2[i].equals("apps") || parts2[i].equals("modules")) {
+                idx2 = i; break;
+            }
+        }
+        if (idx1 != -1 && idx1 == idx2) {
+            boolean prefixMatch = true;
+            for(int i = 0; i < idx1; i++) {
+                if(!parts1[i].equals(parts2[i])) prefixMatch = false;
+            }
+            if (prefixMatch && !parts1[idx1+1].equals(parts2[idx2+1])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isKnownVariantSegment(String seg) {
+        return seg.equals("debug") || seg.equals("release") || seg.equals("main") || seg.equals("profile") 
+            || seg.equals("test") || seg.equals("androidtest") || seg.startsWith("drawable-") 
+            || seg.equals("h2") || seg.equals("mysql") || seg.equals("postgres") || seg.equals("postgresql") 
+            || seg.equals("dev") || seg.equals("prod") || seg.equals("staging") || seg.equals("local");
     }
 }

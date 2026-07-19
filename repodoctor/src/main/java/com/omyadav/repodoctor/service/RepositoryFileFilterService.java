@@ -8,6 +8,12 @@ import java.util.Map;
 @Service
 public class RepositoryFileFilterService {
 
+    private final ExcludedPathService excludedPathService;
+
+    public RepositoryFileFilterService(ExcludedPathService excludedPathService) {
+        this.excludedPathService = excludedPathService;
+    }
+
     public List<String> filterUsefulFiles(
             Map<String, Object> repositoryTree) {
 
@@ -28,16 +34,12 @@ public class RepositoryFileFilterService {
     }
 
     private boolean isIgnoredPath(String path) {
+        if (excludedPathService.isVendorOrBuildPath(path)) {
+            return true;
+        }
 
         String lowerPath = path.toLowerCase();
-
-        return lowerPath.startsWith(".vs/")
-                || lowerPath.startsWith(".vscode/")
-                || lowerPath.contains("/.ipynb_checkpoints/")
-                || lowerPath.startsWith(".ipynb_checkpoints/")
-                || lowerPath.contains("/__pycache__/")
-                || lowerPath.startsWith("__pycache__/")
-                || lowerPath.endsWith(".pyc")
+        return lowerPath.endsWith(".pyc")
                 || lowerPath.equals(".env")
                 || lowerPath.equals(".ds_store")
                 || lowerPath.endsWith("thumbs.db");

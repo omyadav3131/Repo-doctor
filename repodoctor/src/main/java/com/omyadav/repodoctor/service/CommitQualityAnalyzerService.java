@@ -155,10 +155,10 @@ public class CommitQualityAnalyzerService {
                 double confidence;
                 if (nonMergeCount >= 5) {
                         status = AnalysisStatus.SUCCESS;
-                        confidence = Math.min(totalCommits, 100) / 100.0;
+                        confidence = Math.min(1.0, nonMergeCount / 20.0);
                 } else {
                         status = AnalysisStatus.PARTIAL;
-                        confidence = nonMergeCount / 5.0;
+                        confidence = nonMergeCount / 20.0;
                 }
 
                 int repeatedMessageCount = calculateRepeatedMessageCount(qualityMessageFrequency, commitIssues);
@@ -348,7 +348,16 @@ public class CommitQualityAnalyzerService {
 
                 score -= Math.min(repeatedMessageCount * 3, 15);
 
-                return Math.max(0, Math.min(score, 100));
+                int finalScore = Math.max(0, Math.min(score, 100));
+                
+                // Explicit caps based on sample size to prevent score inflation
+                if (qualityRelevantCommits < 5) {
+                    finalScore = Math.min(finalScore, 65);
+                } else if (qualityRelevantCommits < 10) {
+                    finalScore = Math.min(finalScore, 75);
+                }
+                
+                return finalScore;
         }
 
         private String extractCommitMessage(Map<String, Object> commitData) {

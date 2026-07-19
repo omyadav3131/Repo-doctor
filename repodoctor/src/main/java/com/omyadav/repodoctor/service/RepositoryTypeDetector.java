@@ -67,33 +67,64 @@ public class RepositoryTypeDetector {
         }
 
         // Frameworks and Languages
-        if (hasPomXml || hasBuildGradle) {
-            if (javaCount > 0) return "SPRING_BOOT";
-            return "JAVA";
-        }
-
-        if (hasPackageJson) {
-            if (hasReactMarkers) return "REACT";
-            if (hasAngularMarkers) return "ANGULAR";
-            if (hasVueMarkers) return "VUE";
-            return "NODE";
-        }
-
-        if (hasRequirementsTxt || hasManagePy) {
-            if (hasManagePy) return "DJANGO";
-            return "PYTHON";
-        }
-
-        if (hasFlutterMarkers) {
-            return "FLUTTER";
-        }
+        boolean isSpring = hasPomXml || hasBuildGradle;
+        boolean isReact = hasPackageJson && hasReactMarkers;
+        boolean isAngular = hasPackageJson && hasAngularMarkers;
+        boolean isVue = hasPackageJson && hasVueMarkers;
+        boolean isNode = hasPackageJson && !isReact && !isAngular && !isVue;
+        boolean isDjango = (hasRequirementsTxt || hasManagePy) && hasManagePy;
+        boolean isPython = (hasRequirementsTxt || hasManagePy) && !isDjango;
+        boolean isFlutter = hasFlutterMarkers;
         
         long cppCount = countSuffix(allFiles, ".cpp") + countSuffix(allFiles, ".c") + countSuffix(allFiles, ".h") + countSuffix(allFiles, ".hpp");
-        if (cppCount > 0 || hasFile(allFiles, "CMakeLists.txt")) {
-            return "CPLUSPLUS";
+        boolean isCpp = cppCount > 0 || hasFile(allFiles, "CMakeLists.txt");
+
+        // Apply GitHub language primary tie-breaker
+        if (githubLanguage != null) {
+            if (isFlutter && "Dart".equalsIgnoreCase(githubLanguage)) return "FLUTTER";
+            if (isSpring && "Java".equalsIgnoreCase(githubLanguage)) return "SPRING_BOOT";
+            if ((isReact || isAngular || isVue || isNode) && ("JavaScript".equalsIgnoreCase(githubLanguage) || "TypeScript".equalsIgnoreCase(githubLanguage))) {
+                if (isReact) return "REACT";
+                if (isAngular) return "ANGULAR";
+                if (isVue) return "VUE";
+                return "NODE";
+            }
+            if (isDjango && "Python".equalsIgnoreCase(githubLanguage)) return "DJANGO";
+            if (isPython && "Python".equalsIgnoreCase(githubLanguage)) return "PYTHON";
+            if (isCpp && ("C++".equalsIgnoreCase(githubLanguage) || "C".equalsIgnoreCase(githubLanguage))) return "CPLUSPLUS";
+        }
+        
+        // Secondary tie-breaker: File counts
+        if (isFlutter || isSpring || isReact || isAngular || isVue || isNode || isDjango || isPython || isCpp) {
+            long maxCount = Math.max(Math.max(javaCount, jsCount + tsCount), Math.max(pythonCount, cppCount));
+            
+            // If Flutter is an option, Dart files would dominate. But since we didn't count dart natively, 
+            // we give it priority if pubspec is found and maxCount is low, or if the user requests it.
+            if (isFlutter && (maxCount < 10 || "Dart".equalsIgnoreCase(githubLanguage))) return "FLUTTER";
+            
+            if (maxCount == javaCount && isSpring) return "SPRING_BOOT";
+            if (maxCount == (jsCount + tsCount)) {
+                if (isReact) return "REACT";
+                if (isAngular) return "ANGULAR";
+                if (isVue) return "VUE";
+                if (isNode) return "NODE";
+            }
+            if (maxCount == pythonCount) {
+                if (isDjango) return "DJANGO";
+                if (isPython) return "PYTHON";
+            }
+            if (maxCount == cppCount && isCpp) return "CPLUSPLUS";
+            
+            // Fallbacks if counts match exactly or are 0
+            if (isFlutter) return "FLUTTER";
+            if (isSpring) return "SPRING_BOOT";
+            if (isReact) return "REACT";
+            if (isNode) return "NODE";
+            if (isDjango) return "DJANGO";
+            if (isPython) return "PYTHON";
         }
 
-        // Language defaults
+        // Language defaults if no framework markers
         if ("Java".equalsIgnoreCase(githubLanguage)) return "JAVA";
         if ("Python".equalsIgnoreCase(githubLanguage)) return "PYTHON";
         if ("JavaScript".equalsIgnoreCase(githubLanguage) || "TypeScript".equalsIgnoreCase(githubLanguage)) return "JAVASCRIPT";
@@ -124,5 +155,9 @@ public class RepositoryTypeDetector {
 
     private boolean hasFile(List<String> files, String exactName) {
         return files.stream().anyMatch(f -> f.equalsIgnoreCase(exactName) || f.toLowerCase().endsWith("/" + exactName.toLowerCase()));
+    }
+    
+    private boolean hasMatch(List<String> files, String regex) {
+        return files.stream().anyMatch(f -> f.toLowerCase().matches(regex));
     }
 }
