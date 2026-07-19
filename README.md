@@ -18,13 +18,17 @@
 > **Note:** Screenshots are currently loading from the `assets/images` directory. 
 
 ````carousel
-![RepoDoctor Dashboard](assets/images/dashboard.png)
+![RepoDoctor Home Page](assets/images/Home_page.png)
 <!-- slide -->
-![Repository Details](assets/images/repo-details.png)
+![Analyze Repository](assets/images/home_repo_insert.png)
 <!-- slide -->
-![Score Breakdown](assets/images/score-breakdown.png)
+![Repository Info](assets/images/Analyzed_repo_info.png)
 <!-- slide -->
-![Actionable Recommendations](assets/images/recommendations.png)
+![Score Breakdown](assets/images/Analyzed_repo_score.png)
+<!-- slide -->
+![Actionable Recommendations](assets/images/Analyyzed_repo_recom.png)
+<!-- slide -->
+![Analysis History](assets/images/History.png)
 ````
 
 ---
