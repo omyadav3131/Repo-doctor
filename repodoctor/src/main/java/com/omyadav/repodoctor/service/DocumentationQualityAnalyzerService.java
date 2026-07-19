@@ -95,48 +95,57 @@ public class DocumentationQualityAnalyzerService {
         int validFiles = filesAnalyzed.get();
         if (validFiles > 0) {
             double commentedFileRatio = (double) filesWithComments.get() / validFiles;
-            if (commentedFileRatio >= 0.2) {
+            
+            // Self-documenting code often requires fewer comments.
+            // As long as there is some documentation present, we grant points.
+            if (commentedFileRatio >= 0.10) {
                 scorePresence += 15;
-                evidence.add("Source code contains inline comments or docstrings.");
-                reasons.add("✔ Source code is well-commented (" + Math.round(commentedFileRatio*100) + "% of files)");
+                evidence.add("Source code contains healthy inline comments or docstrings.");
+                reasons.add("✔ Source code contains reasonable inline comments");
             } else if (commentedFileRatio > 0) {
-                scorePresence += 5;
-                reasons.add("✘ Sparse inline comments (" + Math.round(commentedFileRatio*100) + "% of files)");
+                scorePresence += 10;
+                reasons.add("ℹ Sparse inline comments, but some are present");
             } else {
-                reasons.add("✘ No inline comments detected in source code");
+                scorePresence += 5; // Don't heavily penalize completely self-documenting code
+                reasons.add("ℹ No inline comments detected, assuming self-documenting code");
             }
 
             // Completeness (Max 40)
             if (isNotebook) {
                 // In notebooks, markdown cells are the docs.
                 if (totalDocLines.get() > 0) scoreCompleteness += 20;
-                if (totalDocLines.get() >= totalCodeLines.get() * 0.3) {
+                if (totalDocLines.get() >= totalCodeLines.get() * 0.2) {
                     scoreCompleteness += 20;
                     evidence.add("Healthy ratio of Markdown to Code cells in Notebook.");
                     reasons.add("✔ Healthy ratio of Markdown to Code cells");
                 }
             } else {
-                if (totalDocLines.get() > 0) scoreCompleteness += 15;
-                if (totalDocLines.get() >= totalCodeLines.get() * 0.1) {
-                    scoreCompleteness += 15;
+                if (totalDocLines.get() > 0) scoreCompleteness += 20;
+                
+                // Only expect a small ratio of docstrings to code, as modern languages are expressive
+                if (totalDocLines.get() >= totalCodeLines.get() * 0.05) {
+                    scoreCompleteness += 20;
                     evidence.add("Healthy ratio of comments/docstrings to source lines.");
                     reasons.add("✔ Good ratio of comments/docstrings to source lines");
-                } else if (totalCodeLines.get() > 500) {
-                    reasons.add("✘ Low ratio of comments to source code");
-                }
-                if (docsFiles.size() >= 2) {
-                    scoreCompleteness += 10;
+                } else if (totalCodeLines.get() > 1000) {
+                    reasons.add("ℹ Lower ratio of comments to source code, could be improved");
                 }
             }
 
             // Quality (Max 30)
-            if (totalDocLines.get() > 50) {
+            if (totalDocLines.get() > 30) {
                 scoreQuality += 15;
+            } else {
+                scoreQuality += 5;
             }
-            if (docsFiles.size() > 5) {
+            
+            if (docsFiles.size() > 1) {
                 scoreQuality += 15;
-                evidence.add("Extensive external documentation detected.");
-                reasons.add("✔ Extensive external documentation detected (" + docsFiles.size() + " files)");
+                evidence.add("External documentation files detected.");
+                reasons.add("✔ External documentation files detected");
+            } else {
+                // If a comprehensive README exists, we shouldn't penalize for lack of external docs
+                scoreQuality += 10;
             }
         } else if ("DOCUMENTATION_REPOSITORY".equals(repositoryType)) {
             if (docsFiles.size() > 2) {

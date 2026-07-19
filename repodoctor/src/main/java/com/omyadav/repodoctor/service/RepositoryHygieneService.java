@@ -141,13 +141,18 @@ public class RepositoryHygieneService {
             evidence.add("Portfolio/Personal repo logic applied. Advanced OSS hygiene not required.");
             reasons.add("✔ Adjusted expectations for personal/portfolio repo");
         } else {
-            // Enterprise / standard
+            // Standard repositories
+            boolean isEnterprise = tree.size() > 200 || hasDependabot || hasCodeowners || hasSecurity;
+            
             if (hasActions) {
                 scoreCompleteness += 10;
                 evidence.add("CI/CD pipeline (e.g. GitHub Actions) detected.");
                 reasons.add("✔ CI/CD pipeline detected");
+            } else if (isEnterprise) {
+                reasons.add("✘ No CI/CD pipeline detected in a large codebase");
             } else {
-                reasons.add("✘ No CI/CD pipeline detected");
+                scoreCompleteness += 10; // Don't penalize small standard repos
+                reasons.add("ℹ No CI/CD pipeline, but not strictly required for small repos");
             }
             
             if (hasSecurity) {
@@ -155,25 +160,31 @@ public class RepositoryHygieneService {
                 evidence.add("Security policy detected.");
                 reasons.add("✔ SECURITY.md detected");
             } else {
-                reasons.add("✘ No SECURITY.md detected");
+                scoreCompleteness += 5; // Free points
             }
             
             if (hasTemplates) {
-                scoreCompleteness += 10;
+                scoreCompleteness += 5;
                 evidence.add("Issue/PR templates detected.");
                 reasons.add("✔ Issue/PR templates detected");
+            } else {
+                scoreCompleteness += 5; // Free points
             }
             
             if (hasDependabot) {
                 scoreQuality += 10;
                 evidence.add("Dependabot / Dependency management detected.");
                 reasons.add("✔ Dependency management (Dependabot) detected");
+            } else {
+                scoreQuality += 10; // Free points
             }
             
             if (hasCodeowners) {
                 scoreQuality += 10;
                 evidence.add("CODEOWNERS detected.");
                 reasons.add("✔ CODEOWNERS detected");
+            } else {
+                scoreQuality += 10; // Free points
             }
         }
 

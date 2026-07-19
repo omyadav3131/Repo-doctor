@@ -320,44 +320,25 @@ public class CommitQualityAnalyzerService {
                         return 0;
                 }
 
-                boolean isSmallOrStudent = "PORTFOLIO".equals(repositoryType) || "README_ONLY".equals(repositoryType) 
-                    || "HTML_CSS".equals(repositoryType) || "DATASET_REPOSITORY".equals(repositoryType)
-                    || "POWER_BI".equals(repositoryType) || qualityRelevantCommits < 10;
-                
-                // Soften penalties for repositories with very few commits or non-software repos
-                double baseScore = isSmallOrStudent ? 60.0 : 0.0;
-                
+                // Base the score purely on the evidence of quality commits
                 double weightedQuality = goodCommitCount + (weakCommitCount * 0.40);
                 double qualityRatio = weightedQuality / qualityRelevantCommits;
 
-                int maxPossibleAdditional = 100 - (int)baseScore - 10;
-                int score = (int) Math.round(baseScore + (qualityRatio * maxPossibleAdditional));
+                int score = (int) Math.round(qualityRatio * 100);
 
+                // Conventional commits are a nice-to-have bonus, not a strict requirement for a high score
                 double conventionalRatio = (double) conventionalCommitCount / qualityRelevantCommits;
-                
-                // If it's a small project, don't penalize much for missing conventional commits
-                if (conventionalRatio > 0) {
-                    score += (int) Math.round(conventionalRatio * 10);
-                } else if (isSmallOrStudent) {
-                    score += 10;
+                if (conventionalRatio >= 0.2) {
+                    score += 5;
                 }
 
-                if (qualityRelevantCommits >= 5) {
-                        score += 5;
+                // Penalize repeated messages only if they represent a significant automated/careless pattern (>30% of commits)
+                double repeatRatio = (double) repeatedMessageCount / qualityRelevantCommits;
+                if (repeatRatio > 0.3) {
+                    score -= Math.min(repeatedMessageCount * 2, 15);
                 }
 
-                score -= Math.min(repeatedMessageCount * 3, 15);
-
-                int finalScore = Math.max(0, Math.min(score, 100));
-                
-                // Explicit caps based on sample size to prevent score inflation
-                if (qualityRelevantCommits < 5) {
-                    finalScore = Math.min(finalScore, 65);
-                } else if (qualityRelevantCommits < 10) {
-                    finalScore = Math.min(finalScore, 75);
-                }
-                
-                return finalScore;
+                return Math.max(0, Math.min(score, 100));
         }
 
         private String extractCommitMessage(Map<String, Object> commitData) {

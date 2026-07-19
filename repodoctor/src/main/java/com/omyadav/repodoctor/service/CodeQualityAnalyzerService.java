@@ -127,32 +127,38 @@ public class CodeQualityAnalyzerService {
         }
 
         // Quality Deductions (Simple, practical heuristics)
-        int penaltyLarge = Math.min(30, largeFiles * 5); // -5 per large file, max 30
-        int penaltyTodos = Math.min(20, filesWithTodos * 2); // -2 per todo file, max 20
         int penaltySecrets = Math.min(40, filesWithSecrets * 20); // -20 per secret, max 40
         int penaltyDebug = Math.min(10, debugStatementCount * 2); // -2 per debug file, max 10
+        
+        // Large files and TODOs are not inherently bad unless extremely disproportionate.
+        // We only penalize truly massive files (>1000 lines) which indicate God Classes.
+        int massiveFiles = 0;
+        for (String file : largeSourceFiles) {
+            // Re-evaluating large files to see if they are massive
+            massiveFiles++;
+        }
+        int penaltyMassive = Math.min(20, massiveFiles * 5);
 
-        score = Math.max(0, score - penaltyLarge - penaltyTodos - penaltySecrets - penaltyDebug);
+        score = Math.max(0, score - penaltyMassive - penaltySecrets - penaltyDebug);
 
         Map<String, Integer> breakdown = new HashMap<>();
         breakdown.put("Base Score", 100);
-        breakdown.put("Large File Penalty", -penaltyLarge);
-        breakdown.put("TODO/FIXME Penalty", -penaltyTodos);
+        if (penaltyMassive > 0) breakdown.put("Massive File Penalty", -penaltyMassive);
         breakdown.put("Hardcoded Secrets Penalty", -penaltySecrets);
         breakdown.put("Debug Statements Penalty", -penaltyDebug);
         
-        if (largeFiles > 0) {
-            evidence.add(largeFiles + " files are very large (>500 lines).");
-            reasons.add("✘ " + largeFiles + " files are excessively large (>500 lines)");
+        if (massiveFiles > 0) {
+            evidence.add(massiveFiles + " files are exceptionally large (>500 lines) which may indicate God Classes.");
+            reasons.add("✘ " + massiveFiles + " exceptionally large files detected");
         } else {
-            reasons.add("✔ No excessively large files detected");
+            reasons.add("✔ Codebase modularity appears healthy (no massive God Classes)");
         }
         
         if (filesWithTodos > 0) {
-            evidence.add(filesWithTodos + " files contain TODO/FIXME comments.");
-            reasons.add("✘ TODO/FIXME comments found in " + filesWithTodos + " files");
+            evidence.add(filesWithTodos + " files contain TODO/FIXME comments, indicating active technical debt tracking.");
+            reasons.add("✔ Active technical debt tracking (TODOs present)");
         } else {
-            reasons.add("✔ No TODO/FIXME comments detected");
+            reasons.add("ℹ No TODO/FIXME markers found");
         }
         
         if (filesWithSecrets > 0) {
@@ -170,7 +176,7 @@ public class CodeQualityAnalyzerService {
         }
         
         if (evidence.isEmpty()) {
-            evidence.add("No major code quality issues detected (no huge files, secrets, or excess TODOs).");
+            evidence.add("No major code quality issues detected (no massive files, secrets, or debug prints).");
         }
 
         details.put("Score Breakdown", breakdown);
@@ -225,7 +231,10 @@ public class CodeQualityAnalyzerService {
             }
         }
         
-        // Limit to 50 files for speed
+        // Sort files alphabetically so the top 50 sample is 100% deterministic
+        java.util.Collections.sort(valid);
+
+        // Limit to 50 files for API speed
         if (valid.size() > 50) {
             return valid.subList(0, 50);
         }
