@@ -154,7 +154,7 @@ public class AnalyzeController {
         }, analysisExecutor);
 
         CompletableFuture<DimensionResult> structureFuture = CompletableFuture.supplyAsync(
-                () -> projectStructureAnalyzerService.analyzeStructure(repositoryTree, repositoryType), analysisExecutor);
+                () -> projectStructureAnalyzerService.analyzeStructure(owner, repository, defaultBranch, repositoryTree, repositoryType), analysisExecutor);
 
         CompletableFuture<DimensionResult> commitQualityFuture = CompletableFuture.supplyAsync(() -> {
             List<Map<String, Object>> commits = gitHubService.getCommits(owner, repository);

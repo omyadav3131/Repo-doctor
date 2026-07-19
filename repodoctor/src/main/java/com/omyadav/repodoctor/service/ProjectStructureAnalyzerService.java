@@ -2,6 +2,7 @@ package com.omyadav.repodoctor.service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -15,25 +16,15 @@ import com.omyadav.repodoctor.analysis.DimensionResult;
 @Service
 public class ProjectStructureAnalyzerService {
 
-    private static final Set<String> KNOWN_MODULE_FILES = Set.of(
-        "__init__.py", "routes.py", "models.py", "views.py", "forms.py", "urls.py", 
-        "admin.py", "serializers.py", "tests.py", "conftest.py",
-        "package-info.java", "module-info.java",
-        "index.js", "index.ts", "index.html",
-        "mod.rs", "lib.rs",
-        "main.go",
-        "readme.md", ".gitignore", "pom.xml", "package.json", "build.gradle",
-        "application.properties", "application.yml", "messages.properties",
-        "setup.py", "requirements.txt", "dockerfile", "cargo.toml", "go.mod"
-    );
-
     private final ExcludedPathService excludedPathService;
+    private final RepositoryContentService repositoryContentService;
 
-    public ProjectStructureAnalyzerService(ExcludedPathService excludedPathService) {
+    public ProjectStructureAnalyzerService(ExcludedPathService excludedPathService, RepositoryContentService repositoryContentService) {
         this.excludedPathService = excludedPathService;
+        this.repositoryContentService = repositoryContentService;
     }
 
-    public DimensionResult analyzeStructure(Map<String, Object> repositoryTree, String repositoryType) {
+    public DimensionResult analyzeStructure(String owner, String repository, String branch, Map<String, Object> repositoryTree, String repositoryType) {
         if (repositoryTree == null) {
             return DimensionResult.fetchFailed("Repository tree is null");
         }
@@ -264,11 +255,13 @@ public class ProjectStructureAnalyzerService {
         // Find root clutter
         List<String> rootClutter = new ArrayList<>();
         Map<String, List<String>> filenameToPaths = new HashMap<>();
-        List<String> suspiciousNamedFiles = new ArrayList<>();
+        List<String> suspiciousCandidates = new ArrayList<>();
+        Set<String> allPaths = new HashSet<>();
         
         for (Map<String, Object> item : tree) {
             if (!isBlob(item)) continue;
             String path = item.get("path").toString();
+            allPaths.add(path);
             
             if (excludedPathService.isVendorOrBuildPath(path)) {
                 continue;
@@ -288,7 +281,7 @@ public class ProjectStructureAnalyzerService {
             
             // Root clutter
             if (parts.length == 1) {
-                if (!isSafeRootFile(lowerPath)) {
+                if (isRootClutter(lowerPath)) {
                     rootClutter.add(path);
                 }
             }
@@ -298,15 +291,32 @@ public class ProjectStructureAnalyzerService {
             
             // Suspicious names (must act as suffix on the base name)
             if (baseName.matches(".*[-_ ](v2|final|copy|backup)$")) {
-                suspiciousNamedFiles.add(path);
+                suspiciousCandidates.add(path);
+            }
+        }
+        
+        // Resolve Suspicious Named Files
+        List<String> suspiciousNamedFiles = new ArrayList<>();
+        for (String sus : suspiciousCandidates) {
+            String dir = sus.contains("/") ? sus.substring(0, sus.lastIndexOf('/') + 1) : "";
+            String filename = sus.substring(sus.lastIndexOf('/') + 1);
+            String baseFilename = filename.replaceAll("(?i)[-_ ](v2|final|copy|backup)(\\.[a-z0-9]+)?$", "$2");
+            String basePath = dir + baseFilename;
+            
+            if (allPaths.contains(basePath)) {
+                String c1 = repositoryContentService.getRawFileContent(owner, repository, branch, sus);
+                String c2 = repositoryContentService.getRawFileContent(owner, repository, branch, basePath);
+                if (c1 != null && c2 != null && c1.trim().equals(c2.trim())) {
+                    suspiciousNamedFiles.add(sus);
+                }
             }
         }
         
         Map<String, List<String>> duplicateLookingFiles = new HashMap<>();
         int duplicateLookingFileCount = 0;
         for (Map.Entry<String, List<String>> entry : filenameToPaths.entrySet()) {
-            if (entry.getValue().size() > 1 && !isWhitelistDuplicate(entry.getKey())) {
-                List<String> actualDuplicates = filterLegitimateVariants(entry.getValue());
+            if (entry.getValue().size() > 1) {
+                List<String> actualDuplicates = filterActualDuplicates(owner, repository, branch, entry.getValue());
                 if (actualDuplicates.size() > 1) {
                     duplicateLookingFiles.put(entry.getKey(), actualDuplicates);
                     duplicateLookingFileCount += actualDuplicates.size();
@@ -368,48 +378,22 @@ public class ProjectStructureAnalyzerService {
         return "blob".equals(item.get("type"));
     }
 
-    private boolean isSafeRootFile(String lowerPath) {
-        if (lowerPath.equals("readme.md") || lowerPath.equals("readme") || lowerPath.equals(".gitignore")) return true;
-        if (lowerPath.startsWith("license") || lowerPath.startsWith("copying")) return true;
-        
-        if (lowerPath.equals("pom.xml") || lowerPath.equals("package.json") || lowerPath.equals("build.gradle") 
-            || lowerPath.equals("settings.gradle") || lowerPath.equals("gradlew") || lowerPath.equals("gradlew.bat")
-            || lowerPath.equals("mvnw") || lowerPath.equals("mvnw.cmd") || lowerPath.startsWith(".git")
-            || lowerPath.endsWith(".yml") || lowerPath.endsWith(".yaml") || lowerPath.endsWith(".toml")
-            || lowerPath.equals("requirements.txt") || lowerPath.equals("setup.py") || lowerPath.equals("manage.py")
-            || lowerPath.equals("dockerfile") || lowerPath.equals("angular.json") || lowerPath.equals("tsconfig.json")
-            || lowerPath.equals("vite.config.js") || lowerPath.equals("vite.config.ts") || lowerPath.equals("webpack.config.js")
-            || lowerPath.endsWith(".pbix") || lowerPath.endsWith(".ipynb") || lowerPath.endsWith(".pkl")
-            || lowerPath.endsWith(".csv") || lowerPath.endsWith(".jsonl")) {
-            return true;
+    private boolean isRootClutter(String lowerPath) {
+        // Raw source code in root is typically clutter (unless specific exceptions like setup.py)
+        if (lowerPath.matches(".*\\.(java|py|cpp|c|h|cs|go|rs|php|rb|swift|kt|dart)$")) {
+            return !(lowerPath.equals("setup.py") || lowerPath.equals("manage.py") || lowerPath.equals("main.go") || lowerPath.equals("build.rs"));
         }
-        
-        if (lowerPath.equals("codeowners") || lowerPath.equals("contributing.md") || lowerPath.equals("code_of_conduct.md")
-            || lowerPath.equals("security.md") || lowerPath.equals("changelog.md")) {
-            return true;
-        }
-        
-        if (lowerPath.startsWith(".") && lowerPath.matches("^\\..*(rc|ignore|config|attributes)($|\\..+)")) {
-            return true;
-        }
-
+        // Everything else (configs, docs, scripts, json, etc) is considered safe structural elements
         return false;
     }
 
-    private boolean isWhitelistDuplicate(String filename) {
-        if (KNOWN_MODULE_FILES.contains(filename)) {
-            return true;
-        }
-        return filename.endsWith(".csv") || filename.endsWith(".ipynb");
-    }
-
-    private List<String> filterLegitimateVariants(List<String> paths) {
+    private List<String> filterActualDuplicates(String owner, String repository, String branch, List<String> paths) {
         List<String> flagged = new ArrayList<>();
         boolean[] isDuplicate = new boolean[paths.size()];
         
         for (int i = 0; i < paths.size(); i++) {
             for (int j = i + 1; j < paths.size(); j++) {
-                if (!isLegitimateVariantPair(paths.get(i), paths.get(j))) {
+                if (isActualDuplicate(owner, repository, branch, paths.get(i), paths.get(j))) {
                     isDuplicate[i] = true;
                     isDuplicate[j] = true;
                 }
@@ -424,36 +408,36 @@ public class ProjectStructureAnalyzerService {
         return flagged;
     }
 
-    private boolean isLegitimateVariantPair(String p1, String p2) {
+    private boolean isActualDuplicate(String owner, String repository, String branch, String p1, String p2) {
         String[] parts1 = p1.toLowerCase(Locale.ROOT).split("/");
         String[] parts2 = p2.toLowerCase(Locale.ROOT).split("/");
         
-        if (isMonorepoVariant(parts1, parts2)) {
-            return true;
-        }
-        
-        if (parts1.length == parts2.length) {
-            int diffCount = 0;
-            String diffSeg1 = "";
-            String diffSeg2 = "";
-            for (int i = 0; i < parts1.length; i++) {
-                if (!parts1[i].equals(parts2[i])) {
-                    diffCount++;
-                    diffSeg1 = parts1[i];
-                    diffSeg2 = parts2[i];
-                }
-            }
-            if (diffCount == 1) {
-                if (isKnownVariantSegment(diffSeg1) || isKnownVariantSegment(diffSeg2)) {
-                    return true;
-                }
+        // 1. Generic Scaffolding/Topology Divergence Check
+        // If they differ at the very first directory (e.g. ios/ vs macos/, frontend/ vs backend/)
+        if (parts1.length > 1 && parts2.length > 1) {
+            if (!parts1[0].equals(parts2[0])) {
+                return false;
             }
         }
         
-        return false;
+        // Monorepo specific divergence (packages/A vs packages/B)
+        if (isMonorepoDivergence(parts1, parts2)) {
+            return false;
+        }
+
+        // 2. Content Similarity Check (Evidence-based)
+        String c1 = repositoryContentService.getRawFileContent(owner, repository, branch, p1);
+        String c2 = repositoryContentService.getRawFileContent(owner, repository, branch, p2);
+        
+        if (c1 == null || c2 == null || c1.isBlank() || c2.isBlank()) {
+            return false;
+        }
+        
+        // If content is strictly identical or very close
+        return c1.trim().equals(c2.trim());
     }
 
-    private boolean isMonorepoVariant(String[] parts1, String[] parts2) {
+    private boolean isMonorepoDivergence(String[] parts1, String[] parts2) {
         int idx1 = -1;
         int idx2 = -1;
         for (int i = 0; i < parts1.length - 2; i++) {
@@ -476,12 +460,5 @@ public class ProjectStructureAnalyzerService {
             }
         }
         return false;
-    }
-
-    private boolean isKnownVariantSegment(String seg) {
-        return seg.equals("debug") || seg.equals("release") || seg.equals("main") || seg.equals("profile") 
-            || seg.equals("test") || seg.equals("androidtest") || seg.startsWith("drawable-") 
-            || seg.equals("h2") || seg.equals("mysql") || seg.equals("postgres") || seg.equals("postgresql") 
-            || seg.equals("dev") || seg.equals("prod") || seg.equals("staging") || seg.equals("local");
     }
 }
