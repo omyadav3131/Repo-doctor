@@ -12,6 +12,22 @@
 *A comprehensive automated code auditor designed to evaluate repository structure, code hygiene, README quality, and project health, producing actionable recommendations and professional PDF reports.*
 
 ---
+
+### 📸 Application Showcase
+
+> **Note:** Screenshots are currently loading from the `assets/images` directory. 
+
+````carousel
+![RepoDoctor Dashboard](assets/images/dashboard.png)
+<!-- slide -->
+![Repository Details](assets/images/repo-details.png)
+<!-- slide -->
+![Score Breakdown](assets/images/score-breakdown.png)
+<!-- slide -->
+![Actionable Recommendations](assets/images/recommendations.png)
+````
+
+---
 </div>
 
 ## 📌 Project Overview
