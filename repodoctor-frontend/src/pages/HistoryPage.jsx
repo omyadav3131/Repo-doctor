@@ -17,7 +17,7 @@ function HistoryPage() {
     try {
       const [analysesData, dashboardData] = await Promise.all([
         getAllAnalyses(),
-        getDashboard(),
+        getDashboard().catch(() => null),
       ]);
       setAnalyses(analysesData || []);
       setDashboard(dashboardData);
