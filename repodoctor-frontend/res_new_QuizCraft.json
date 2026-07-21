@@ -1,0 +1,772 @@
+{
+  "analysisId": 13,
+  "repository": {
+    "owner": "omyadav3131",
+    "repository": "QuizCraft",
+    "repositoryUrl": "https://github.com/omyadav3131/QuizCraft",
+    "description": "Flask-based quiz and competition platform with authentication, leaderboards, admin panel and two-player competitions.",
+    "stars": 0,
+    "forks": 1,
+    "watchers": 0,
+    "openIssues": 0,
+    "language": "HTML",
+    "license": "MIT",
+    "defaultBranch": "main",
+    "lastUpdated": "2026-07-11T14:32:05Z",
+    "archived": false,
+    "usefulFileCount": 66
+  },
+  "scope": {
+    "commitScopeLimit": 100,
+    "sourceFileScopeLimit": 50,
+    "treeWasTruncated": false,
+    "scopeNote": "Analysis covers the most recent 100 commits and up to 50 source code files."
+  },
+  "analyzedAt": "2026-07-21T20:06:10.320002649",
+  "hygiene": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 80,
+    "confidence": 1,
+    "weight": 0.15,
+    "contribution": 12,
+    "totalCandidateItemCount": 115,
+    "analyzedItemCount": 115,
+    "failedItemCount": 0,
+    "issues": [
+      "Bulk dirty directory committed: .vscode/ (2 files committed)",
+      "Bulk dirty directory committed: .vs/ (18 files committed)"
+    ],
+    "warnings": [],
+    "evidence": [
+      "README found.",
+      ".gitignore found.",
+      "License found."
+    ],
+    "details": {
+      "dirtyFiles": [
+        ".vscode/ (2 files committed)",
+        ".vs/ (18 files committed)"
+      ],
+      "Score Breakdown": {
+        "Completeness": 20,
+        "Quality": 20,
+        "Presence": 40
+      },
+      "reasons": [
+        "✔ README detected",
+        "✔ .gitignore detected",
+        "✔ License detected",
+        "✘ Dirty/generated files committed (2)",
+        "ℹ No CI/CD pipeline, but not strictly required for small repos"
+      ],
+      "dirtyFilesFound": true
+    }
+  },
+  "readme": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 90,
+    "confidence": 1,
+    "weight": 0.15,
+    "contribution": 13.5,
+    "totalCandidateItemCount": 0,
+    "analyzedItemCount": 0,
+    "failedItemCount": 0,
+    "issues": [],
+    "warnings": [],
+    "evidence": [
+      "README is present and contains some text.",
+      "Overview / Business Problem section found.",
+      "Installation instructions section found.",
+      "Usage examples section found.",
+      "Configuration details section found.",
+      "Architecture / Features section found.",
+      "Contributing / License section found.",
+      "Code blocks detected.",
+      "Images or badges detected."
+    ],
+    "details": {
+      "Score Breakdown": {
+        "Completeness": 30,
+        "Quality": 30,
+        "Presence": 30
+      },
+      "readmeChecks": {
+        "Overview / Business Problem": true,
+        "Installation instructions": true,
+        "Usage examples": true,
+        "Configuration details": true,
+        "Architecture / Features": true,
+        "Contributing / License": true,
+        "API / Documentation": false
+      },
+      "reasons": [
+        "✔ README is present and non-empty",
+        "✔ Overview / Business Problem documented",
+        "✔ Installation instructions documented",
+        "✔ Usage examples documented",
+        "✔ Configuration details documented",
+        "✔ Architecture / Features documented",
+        "✔ Contributing / License documented",
+        "✔ Extensive README documentation",
+        "✔ Useful code blocks/snippets included",
+        "✔ Images or badges used for presentation"
+      ],
+      "contentLength": 5164
+    }
+  },
+  "structure": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 80,
+    "confidence": 1,
+    "weight": 0.15,
+    "contribution": 12,
+    "totalCandidateItemCount": 115,
+    "analyzedItemCount": 115,
+    "failedItemCount": 0,
+    "issues": [],
+    "warnings": [],
+    "evidence": [
+      "Source code directory detected.",
+      "Python module structure or organized app files followed.",
+      "Good Python package nesting or app organization detected."
+    ],
+    "details": {
+      "suspiciousNamedFiles": [],
+      "suspiciousNamedFileCount": 0,
+      "rootClutterCount": 7,
+      "rootClutter": [
+        "config.py",
+        "create_db.py",
+        "init_competition_db.py",
+        "main.py",
+        "migrate_attempts_to_leaderboard.py",
+        "test_app.py",
+        "update_db.py"
+      ],
+      "Score Breakdown": {
+        "Completeness": 30,
+        "Quality": 35,
+        "Presence": 15
+      },
+      "reasons": [
+        "✔ Source directory detected",
+        "✘ No test directory found",
+        "✔ Standard Python module/app structure",
+        "✔ Organized Python packages/app",
+        "✘ Root directory is cluttered (7 files)"
+      ],
+      "duplicateLookingFiles": {},
+      "duplicateLookingFileCount": 0
+    }
+  },
+  "commitQuality": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 97,
+    "confidence": 1,
+    "weight": 0.15,
+    "contribution": 14.549999999999999,
+    "totalCandidateItemCount": 39,
+    "analyzedItemCount": 39,
+    "failedItemCount": 0,
+    "issues": [
+      "Generic commit message: Initial commit",
+      "Repeated commit message: delete readme_run.md (2 times)",
+      "Repeated commit message: add flask-login dependency (3 times)",
+      "Repeated commit message: update readme.md (2 times)"
+    ],
+    "warnings": [],
+    "evidence": [],
+    "details": {
+      "goodCommitCount": 32,
+      "averageMessageLength": 62.69,
+      "reasons": [
+        "✔ Excellent use of descriptive, action-oriented commits",
+        "✔ Conventional Commit format detected (1 commits)",
+        "✘ Generic commit messages detected (1 commits)",
+        "✘ Repeated identical commit messages used (4 instances)"
+      ],
+      "genericCommitMessages": [
+        "Initial commit"
+      ],
+      "weakCommitCount": 0,
+      "mergeCommitCount": 6,
+      "conventionalCommitCount": 1,
+      "genericCommitCount": 1,
+      "weakCommitMessages": [],
+      "totalCommitsAnalyzed": 39,
+      "repeatedMessageCount": 4,
+      "commitIssues": [
+        "Generic commit message: Initial commit",
+        "Repeated commit message: delete readme_run.md (2 times)",
+        "Repeated commit message: add flask-login dependency (3 times)",
+        "Repeated commit message: update readme.md (2 times)"
+      ],
+      "scopeNote": "Analysis covers the most recent 100 commits."
+    }
+  },
+  "documentation": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 100,
+    "confidence": 1,
+    "weight": 0.15,
+    "contribution": 15,
+    "totalCandidateItemCount": 27,
+    "analyzedItemCount": 25,
+    "failedItemCount": 0,
+    "issues": [],
+    "warnings": [],
+    "evidence": [
+      "Dedicated documentation files/folders found.",
+      "Source code contains healthy inline comments or docstrings.",
+      "Healthy ratio of comments/docstrings to source lines.",
+      "External documentation files detected."
+    ],
+    "details": {
+      "totalDocLines": 581,
+      "largeUndocumentedFiles": [],
+      "needsDocumentationImprovement": false,
+      "Score Breakdown": {
+        "Completeness": 40,
+        "Quality": 30,
+        "Presence": 30
+      },
+      "documentationCoverage": 22.704181320828447,
+      "filesWithComments": 23,
+      "reasons": [
+        "✔ Dedicated documentation files/folders found",
+        "✔ Source code contains reasonable inline comments",
+        "✔ Good ratio of comments/docstrings to source lines",
+        "✔ External documentation files detected"
+      ],
+      "totalCodeLines": 1978
+    }
+  },
+  "codeQuality": {
+    "status": "SUCCESS",
+    "statusReason": null,
+    "score": 75,
+    "confidence": 1,
+    "weight": 0.25,
+    "contribution": 18.75,
+    "totalCandidateItemCount": 25,
+    "analyzedItemCount": 25,
+    "failedItemCount": 0,
+    "issues": [],
+    "warnings": [],
+    "evidence": [
+      "3 files are exceptionally large (>500 lines) which may indicate God Classes.",
+      "12 files contain leftover debug statements (e.g., console.log, print)."
+    ],
+    "details": {
+      "longFunctionCount": 0,
+      "implementationHeavyFileCount": 9,
+      "reasons": [
+        "✘ 3 exceptionally large files detected",
+        "ℹ No TODO/FIXME markers found",
+        "✔ No hardcoded secrets detected",
+        "✘ Leftover debug statements (console.log, print) in 12 files"
+      ],
+      "Score Breakdown": {
+        "Massive File Penalty": -15,
+        "Hardcoded Secrets Penalty": 0,
+        "Base Score": 100,
+        "Debug Statements Penalty": -10
+      },
+      "generatedLikeFileCount": 0,
+      "debugStatementFiles": [
+        "app/__init__.py",
+        "app/admin/__init__.py",
+        "app/auth/__init__.py",
+        "app/competition/__init__.py",
+        "app/competition/routes.py",
+        "app/quiz/__init__.py",
+        "app/quiz/routes.py",
+        "create_db.py",
+        "init_competition_db.py",
+        "migrate_attempts_to_leaderboard.py",
+        "test_app.py",
+        "update_db.py"
+      ],
+      "largeSourceFileCount": 3,
+      "debugStatementCount": 12,
+      "possibleSecretFiles": [],
+      "todoFixmeCount": 0,
+      "largeSourceFiles": [
+        "app/admin/routes.py",
+        "app/competition/routes.py",
+        "app/quiz/routes.py"
+      ],
+      "sourceFilesAnalyzed": 25,
+      "realSourceFileCount": 25,
+      "totalImplementationLines": 2559,
+      "possibleSecretCount": 0
+    }
+  },
+  "overall": {
+    "status": "SUCCESS",
+    "score": 86,
+    "confidence": 1,
+    "grade": "A",
+    "repositoryHealth": "GOOD",
+    "validDimensionCount": 6,
+    "excludedDimensions": [],
+    "warnings": [],
+    "evidence": [
+      "Hygiene contributed 12.0 to the final score (Weight: 15.0%).",
+      "README contributed 13.5 to the final score (Weight: 15.0%).",
+      "Project Structure contributed 12.0 to the final score (Weight: 15.0%).",
+      "Commit Quality contributed 14.55 to the final score (Weight: 15.0%).",
+      "Documentation contributed 15.0 to the final score (Weight: 15.0%).",
+      "Code Quality contributed 18.75 to the final score (Weight: 25.0%)."
+    ],
+    "reasoning": [
+      "[Hygiene] ✔ README detected",
+      "[Hygiene] ✔ .gitignore detected",
+      "[Hygiene] ✔ License detected",
+      "[Hygiene] ✘ Dirty/generated files committed (2)",
+      "[Hygiene] ℹ No CI/CD pipeline, but not strictly required for small repos",
+      "[README] ✔ README is present and non-empty",
+      "[README] ✔ Overview / Business Problem documented",
+      "[README] ✔ Installation instructions documented",
+      "[README] ✔ Usage examples documented",
+      "[README] ✔ Configuration details documented",
+      "[README] ✔ Architecture / Features documented",
+      "[README] ✔ Contributing / License documented",
+      "[README] ✔ Extensive README documentation",
+      "[README] ✔ Useful code blocks/snippets included",
+      "[README] ✔ Images or badges used for presentation",
+      "[Project Structure] ✔ Source directory detected",
+      "[Project Structure] ✘ No test directory found",
+      "[Project Structure] ✔ Standard Python module/app structure",
+      "[Project Structure] ✔ Organized Python packages/app",
+      "[Project Structure] ✘ Root directory is cluttered (7 files)",
+      "[Commit Quality] ✔ Excellent use of descriptive, action-oriented commits",
+      "[Commit Quality] ✔ Conventional Commit format detected (1 commits)",
+      "[Commit Quality] ✘ Generic commit messages detected (1 commits)",
+      "[Commit Quality] ✘ Repeated identical commit messages used (4 instances)",
+      "[Documentation] ✔ Dedicated documentation files/folders found",
+      "[Documentation] ✔ Source code contains reasonable inline comments",
+      "[Documentation] ✔ Good ratio of comments/docstrings to source lines",
+      "[Documentation] ✔ External documentation files detected",
+      "[Code Quality] ✘ 3 exceptionally large files detected",
+      "[Code Quality] ℹ No TODO/FIXME markers found",
+      "[Code Quality] ✔ No hardcoded secrets detected",
+      "[Code Quality] ✘ Leftover debug statements (console.log, print) in 12 files"
+    ],
+    "unsupportedMetrics": [],
+    "unknownMetrics": [],
+    "partialAnalysis": false,
+    "implementationScore": 86,
+    "implementationClassification": "STANDARD",
+    "weightedDimensions": {
+      "Code Quality": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 75,
+        "confidence": 1,
+        "weight": 0.25,
+        "contribution": 18.75,
+        "totalCandidateItemCount": 25,
+        "analyzedItemCount": 25,
+        "failedItemCount": 0,
+        "issues": [],
+        "warnings": [],
+        "evidence": [
+          "3 files are exceptionally large (>500 lines) which may indicate God Classes.",
+          "12 files contain leftover debug statements (e.g., console.log, print)."
+        ],
+        "details": {
+          "longFunctionCount": 0,
+          "implementationHeavyFileCount": 9,
+          "reasons": [
+            "✘ 3 exceptionally large files detected",
+            "ℹ No TODO/FIXME markers found",
+            "✔ No hardcoded secrets detected",
+            "✘ Leftover debug statements (console.log, print) in 12 files"
+          ],
+          "Score Breakdown": {
+            "Massive File Penalty": -15,
+            "Hardcoded Secrets Penalty": 0,
+            "Base Score": 100,
+            "Debug Statements Penalty": -10
+          },
+          "generatedLikeFileCount": 0,
+          "debugStatementFiles": [
+            "app/__init__.py",
+            "app/admin/__init__.py",
+            "app/auth/__init__.py",
+            "app/competition/__init__.py",
+            "app/competition/routes.py",
+            "app/quiz/__init__.py",
+            "app/quiz/routes.py",
+            "create_db.py",
+            "init_competition_db.py",
+            "migrate_attempts_to_leaderboard.py",
+            "test_app.py",
+            "update_db.py"
+          ],
+          "largeSourceFileCount": 3,
+          "debugStatementCount": 12,
+          "possibleSecretFiles": [],
+          "todoFixmeCount": 0,
+          "largeSourceFiles": [
+            "app/admin/routes.py",
+            "app/competition/routes.py",
+            "app/quiz/routes.py"
+          ],
+          "sourceFilesAnalyzed": 25,
+          "realSourceFileCount": 25,
+          "totalImplementationLines": 2559,
+          "possibleSecretCount": 0
+        }
+      },
+      "Commit Quality": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 97,
+        "confidence": 1,
+        "weight": 0.15,
+        "contribution": 14.549999999999999,
+        "totalCandidateItemCount": 39,
+        "analyzedItemCount": 39,
+        "failedItemCount": 0,
+        "issues": [
+          "Generic commit message: Initial commit",
+          "Repeated commit message: delete readme_run.md (2 times)",
+          "Repeated commit message: add flask-login dependency (3 times)",
+          "Repeated commit message: update readme.md (2 times)"
+        ],
+        "warnings": [],
+        "evidence": [],
+        "details": {
+          "goodCommitCount": 32,
+          "averageMessageLength": 62.69,
+          "reasons": [
+            "✔ Excellent use of descriptive, action-oriented commits",
+            "✔ Conventional Commit format detected (1 commits)",
+            "✘ Generic commit messages detected (1 commits)",
+            "✘ Repeated identical commit messages used (4 instances)"
+          ],
+          "genericCommitMessages": [
+            "Initial commit"
+          ],
+          "weakCommitCount": 0,
+          "mergeCommitCount": 6,
+          "conventionalCommitCount": 1,
+          "genericCommitCount": 1,
+          "weakCommitMessages": [],
+          "totalCommitsAnalyzed": 39,
+          "repeatedMessageCount": 4,
+          "commitIssues": [
+            "Generic commit message: Initial commit",
+            "Repeated commit message: delete readme_run.md (2 times)",
+            "Repeated commit message: add flask-login dependency (3 times)",
+            "Repeated commit message: update readme.md (2 times)"
+          ],
+          "scopeNote": "Analysis covers the most recent 100 commits."
+        }
+      },
+      "README": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 90,
+        "confidence": 1,
+        "weight": 0.15,
+        "contribution": 13.5,
+        "totalCandidateItemCount": 0,
+        "analyzedItemCount": 0,
+        "failedItemCount": 0,
+        "issues": [],
+        "warnings": [],
+        "evidence": [
+          "README is present and contains some text.",
+          "Overview / Business Problem section found.",
+          "Installation instructions section found.",
+          "Usage examples section found.",
+          "Configuration details section found.",
+          "Architecture / Features section found.",
+          "Contributing / License section found.",
+          "Code blocks detected.",
+          "Images or badges detected."
+        ],
+        "details": {
+          "Score Breakdown": {
+            "Completeness": 30,
+            "Quality": 30,
+            "Presence": 30
+          },
+          "readmeChecks": {
+            "Overview / Business Problem": true,
+            "Installation instructions": true,
+            "Usage examples": true,
+            "Configuration details": true,
+            "Architecture / Features": true,
+            "Contributing / License": true,
+            "API / Documentation": false
+          },
+          "reasons": [
+            "✔ README is present and non-empty",
+            "✔ Overview / Business Problem documented",
+            "✔ Installation instructions documented",
+            "✔ Usage examples documented",
+            "✔ Configuration details documented",
+            "✔ Architecture / Features documented",
+            "✔ Contributing / License documented",
+            "✔ Extensive README documentation",
+            "✔ Useful code blocks/snippets included",
+            "✔ Images or badges used for presentation"
+          ],
+          "contentLength": 5164
+        }
+      },
+      "Project Structure": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 80,
+        "confidence": 1,
+        "weight": 0.15,
+        "contribution": 12,
+        "totalCandidateItemCount": 115,
+        "analyzedItemCount": 115,
+        "failedItemCount": 0,
+        "issues": [],
+        "warnings": [],
+        "evidence": [
+          "Source code directory detected.",
+          "Python module structure or organized app files followed.",
+          "Good Python package nesting or app organization detected."
+        ],
+        "details": {
+          "suspiciousNamedFiles": [],
+          "suspiciousNamedFileCount": 0,
+          "rootClutterCount": 7,
+          "rootClutter": [
+            "config.py",
+            "create_db.py",
+            "init_competition_db.py",
+            "main.py",
+            "migrate_attempts_to_leaderboard.py",
+            "test_app.py",
+            "update_db.py"
+          ],
+          "Score Breakdown": {
+            "Completeness": 30,
+            "Quality": 35,
+            "Presence": 15
+          },
+          "reasons": [
+            "✔ Source directory detected",
+            "✘ No test directory found",
+            "✔ Standard Python module/app structure",
+            "✔ Organized Python packages/app",
+            "✘ Root directory is cluttered (7 files)"
+          ],
+          "duplicateLookingFiles": {},
+          "duplicateLookingFileCount": 0
+        }
+      },
+      "Documentation": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 100,
+        "confidence": 1,
+        "weight": 0.15,
+        "contribution": 15,
+        "totalCandidateItemCount": 27,
+        "analyzedItemCount": 25,
+        "failedItemCount": 0,
+        "issues": [],
+        "warnings": [],
+        "evidence": [
+          "Dedicated documentation files/folders found.",
+          "Source code contains healthy inline comments or docstrings.",
+          "Healthy ratio of comments/docstrings to source lines.",
+          "External documentation files detected."
+        ],
+        "details": {
+          "totalDocLines": 581,
+          "largeUndocumentedFiles": [],
+          "needsDocumentationImprovement": false,
+          "Score Breakdown": {
+            "Completeness": 40,
+            "Quality": 30,
+            "Presence": 30
+          },
+          "documentationCoverage": 22.704181320828447,
+          "filesWithComments": 23,
+          "reasons": [
+            "✔ Dedicated documentation files/folders found",
+            "✔ Source code contains reasonable inline comments",
+            "✔ Good ratio of comments/docstrings to source lines",
+            "✔ External documentation files detected"
+          ],
+          "totalCodeLines": 1978
+        }
+      },
+      "Hygiene": {
+        "status": "SUCCESS",
+        "statusReason": null,
+        "score": 80,
+        "confidence": 1,
+        "weight": 0.15,
+        "contribution": 12,
+        "totalCandidateItemCount": 115,
+        "analyzedItemCount": 115,
+        "failedItemCount": 0,
+        "issues": [
+          "Bulk dirty directory committed: .vscode/ (2 files committed)",
+          "Bulk dirty directory committed: .vs/ (18 files committed)"
+        ],
+        "warnings": [],
+        "evidence": [
+          "README found.",
+          ".gitignore found.",
+          "License found."
+        ],
+        "details": {
+          "dirtyFiles": [
+            ".vscode/ (2 files committed)",
+            ".vs/ (18 files committed)"
+          ],
+          "Score Breakdown": {
+            "Completeness": 20,
+            "Quality": 20,
+            "Presence": 40
+          },
+          "reasons": [
+            "✔ README detected",
+            "✔ .gitignore detected",
+            "✔ License detected",
+            "✘ Dirty/generated files committed (2)",
+            "ℹ No CI/CD pipeline, but not strictly required for small repos"
+          ],
+          "dirtyFilesFound": true
+        }
+      }
+    },
+    "repositoryType": "PYTHON",
+    "baseScore": 86,
+    "adjustments": {}
+  },
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "REPOSITORY_HYGIENE",
+      "title": "Clean repository metadata and generated files",
+      "description": "Remove IDE metadata, generated files and unnecessary committed artifacts.",
+      "affectedItems": [
+        ".vscode/ (2 files committed)",
+        ".vs/ (18 files committed)"
+      ],
+      "reason": "Detected 2 generated/dirty files committed to the repository.",
+      "evidence": ".vscode/ (2 files committed), .vs/ (18 files committed)",
+      "expectedBenefit": "Prevents merge conflicts, reduces repository size, and improves security.",
+      "estimatedScoreImprovement": 15
+    },
+    {
+      "priority": "HIGH",
+      "category": "CODE_QUALITY",
+      "title": "Split large source files",
+      "description": "Break large source files into smaller modules or services with focused responsibilities.",
+      "affectedItems": [
+        "app/admin/routes.py",
+        "app/competition/routes.py",
+        "app/quiz/routes.py"
+      ],
+      "reason": "Detected 3 files over 500 lines.",
+      "evidence": "Files: app/admin/routes.py, app/competition/routes.py, app/quiz/routes.py",
+      "expectedBenefit": "Improves readability and enforces Single Responsibility Principle.",
+      "estimatedScoreImprovement": 10
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "README",
+      "title": "Improve README documentation",
+      "description": "Add or improve missing README sections: API / Documentation.",
+      "affectedItems": [
+        "API / Documentation"
+      ],
+      "reason": "Important README sections are missing.",
+      "evidence": "Missing: API / Documentation",
+      "expectedBenefit": "Improves developer onboarding and repository professionalism.",
+      "estimatedScoreImprovement": 10
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "PROJECT_STRUCTURE",
+      "title": "Reduce root directory clutter",
+      "description": "Move database utilities, migration scripts and non-essential artifacts into dedicated directories.",
+      "affectedItems": [
+        "config.py",
+        "create_db.py",
+        "init_competition_db.py",
+        "main.py",
+        "migrate_attempts_to_leaderboard.py",
+        "test_app.py",
+        "update_db.py"
+      ],
+      "reason": "Root directory is cluttered with 7 unstructured files.",
+      "evidence": "config.py, create_db.py, init_competition_db.py...",
+      "expectedBenefit": "Makes repository navigation significantly easier.",
+      "estimatedScoreImprovement": 10
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "CODE_QUALITY",
+      "title": "Remove production debug statements",
+      "description": "Replace temporary print or console debug statements with structured application logging where necessary.",
+      "affectedItems": [
+        "app/__init__.py",
+        "app/admin/__init__.py",
+        "app/auth/__init__.py",
+        "app/competition/__init__.py",
+        "app/competition/routes.py",
+        "app/quiz/__init__.py",
+        "app/quiz/routes.py",
+        "create_db.py",
+        "init_competition_db.py",
+        "migrate_attempts_to_leaderboard.py",
+        "+ 2 more files affected."
+      ],
+      "reason": "Detected leftover print/console.log statements in 12 files.",
+      "evidence": "Files: app/__init__.py, app/admin/__init__.py, app/auth/__init__.py",
+      "expectedBenefit": "Cleans up production logs and standardizes observability.",
+      "estimatedScoreImprovement": 5
+    },
+    {
+      "priority": "LOW",
+      "category": "COMMIT_QUALITY",
+      "title": "Use descriptive commit messages",
+      "description": "Replace generic commit messages with clear action-oriented descriptions of the actual change.",
+      "affectedItems": [
+        "Initial commit"
+      ],
+      "reason": "Found 1 generic/vague commits.",
+      "evidence": "Examples: Initial commit",
+      "expectedBenefit": "Improves project history traceability.",
+      "estimatedScoreImprovement": 5
+    },
+    {
+      "priority": "LOW",
+      "category": "COMMIT_QUALITY",
+      "title": "Avoid repeated commit messages",
+      "description": "Write commit messages that describe each individual change instead of repeatedly reusing the same message.",
+      "affectedItems": [
+        "Repeated commit message: delete readme_run.md (2 times)",
+        "Repeated commit message: add flask-login dependency (3 times)",
+        "Repeated commit message: update readme.md (2 times)"
+      ],
+      "reason": "Found 4 instances of repeated commit messages.",
+      "evidence": "Repeated instances found in commit history.",
+      "expectedBenefit": "Provides accurate context for code changes.",
+      "estimatedScoreImprovement": 5
+    }
+  ],
+  "status": "REPOSITORY_ANALYSIS_COMPLETED",
+  "warnings": []
+}

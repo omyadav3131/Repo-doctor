@@ -1,0 +1,1 @@
+fetch('https://repo-doctor-tau.vercel.app/').then(r=>r.text()).then(t=>{const m=t.match(/src="(\/assets\/index-[^"]+\.js)"/); if(m) fetch('https://repo-doctor-tau.vercel.app'+m[1]).then(r=>r.text()).then(js=>{const am=js.match(/https:\/\/[a-zA-Z0-9-]+\.onrender\.com/g); console.log(am ? am[0] : 'Not found');})})

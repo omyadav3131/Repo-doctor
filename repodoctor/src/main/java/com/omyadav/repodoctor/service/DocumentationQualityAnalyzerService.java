@@ -210,6 +210,7 @@ public class DocumentationQualityAnalyzerService {
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)
                 .confidence(confidence)
+                .confidenceReason("Successfully parsed " + validFiles + " of " + (validFiles + fetchFailed.get()) + " valid files")
                 .totalCandidateItemCount(sourceFiles.size() + docsFiles.size())
                 .analyzedItemCount(validFiles)
                 .failedItemCount(fetchFailed.get())

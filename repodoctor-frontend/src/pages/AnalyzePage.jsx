@@ -322,16 +322,28 @@ function ScoreCard({ label, result, formatLabel }) {
     <div className="score-breakdown-card">
       <div className="score-card-header">
         <span>{label}</span>
-        <strong>{isMissing ? "N/A" : `${safeScore}/100`}</strong>
+        {typeof confidence === "number" && confidence < 0.3 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "0.75em", color: "#d97706", backgroundColor: "#fef3c7", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>Limited Data</span>
+                <strong style={{ opacity: 0.5, fontWeight: "normal" }}>{isMissing ? "N/A" : `${safeScore}/100`}</strong>
+            </div>
+        ) : (
+            <strong>{isMissing ? "N/A" : `${safeScore}/100`}</strong>
+        )}
       </div>
       <div className="score-card-meta">
         <span className={`status-chip status-${String(status).toLowerCase()}`}>
           {formatLabel(status)}
         </span>
-        <span>
+        <span title={result?.confidenceReason}>
           Confidence: {typeof confidence === "number" ? `${Math.round(confidence * 100)}%` : "N/A"}
         </span>
       </div>
+      {result?.confidenceReason && (
+        <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "4px", marginBottom: "8px", fontStyle: "italic" }}>
+           {result.confidenceReason}
+        </div>
+      )}
       <div className="score-track">
         <div className="score-fill" style={{ width: `${Math.min(safeScore, 100)}%` }} />
       </div>

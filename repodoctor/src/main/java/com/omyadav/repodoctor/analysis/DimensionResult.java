@@ -11,6 +11,7 @@ public final class DimensionResult {
     private final String statusReason;
     private final Integer score;
     private final Double confidence;
+    private final String confidenceReason;
     private final Double weight;
     private final Double contribution;
     private final int totalCandidateItemCount;
@@ -26,6 +27,7 @@ public final class DimensionResult {
         this.statusReason = builder.statusReason;
         this.score = builder.score;
         this.confidence = builder.confidence;
+        this.confidenceReason = builder.confidenceReason;
         this.weight = builder.weight;
         this.contribution = builder.contribution;
         this.totalCandidateItemCount = builder.totalCandidateItemCount;
@@ -51,6 +53,10 @@ public final class DimensionResult {
 
     public Double getConfidence() {
         return confidence;
+    }
+
+    public String getConfidenceReason() {
+        return confidenceReason;
     }
 
     public Double getWeight() {
@@ -116,6 +122,7 @@ public final class DimensionResult {
                 .statusReason(this.statusReason)
                 .score(this.score)
                 .confidence(this.confidence)
+                .confidenceReason(this.confidenceReason)
                 .weight(this.weight)
                 .contribution(this.contribution)
                 .totalCandidateItemCount(this.totalCandidateItemCount)
@@ -136,6 +143,7 @@ public final class DimensionResult {
         private String statusReason;
         private Integer score;
         private Double confidence;
+        private String confidenceReason;
         private Double weight;
         private Double contribution;
         private int totalCandidateItemCount;
@@ -149,7 +157,9 @@ public final class DimensionResult {
         public Builder(AnalysisStatus status) {
             this.status = status;
 
-            // Set default confidence based on status
+            // DEFAULT ONLY: Every analyzer MUST explicitly call both .confidence(...) 
+            // and .confidenceReason(...) together. Otherwise it will silently regress 
+            // to this "always 100%, no real reason" default.
             if (status == AnalysisStatus.SUCCESS) {
                 this.confidence = 1.0;
             }
@@ -167,6 +177,11 @@ public final class DimensionResult {
 
         public Builder confidence(Double confidence) {
             this.confidence = confidence;
+            return this;
+        }
+
+        public Builder confidenceReason(String confidenceReason) {
+            this.confidenceReason = confidenceReason;
             return this;
         }
 

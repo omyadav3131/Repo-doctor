@@ -354,6 +354,7 @@ public class ProjectStructureAnalyzerService {
         DimensionResult.Builder builder = DimensionResult.builder(status)
                 .score(totalScore)
                 .confidence(truncated ? 0.6 : 1.0)
+                .confidenceReason(truncated ? "Repository tree was truncated by GitHub API (100k+ limit)" : "Repository is fully analyzed")
                 .totalCandidateItemCount(tree.size())
                 .analyzedItemCount(tree.size())
                 .failedItemCount(0)

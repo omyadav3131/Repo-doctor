@@ -202,6 +202,7 @@ public class RepositoryHygieneService {
         DimensionResult.Builder builder = DimensionResult.builder(status)
                 .score(totalScore)
                 .confidence(confidence)
+                .confidenceReason(truncated ? "Repository tree was truncated by GitHub API (100k+ limit)" : "Repository is fully analyzed")
                 .totalCandidateItemCount(tree.size())
                 .analyzedItemCount(tree.size())
                 .failedItemCount(0)

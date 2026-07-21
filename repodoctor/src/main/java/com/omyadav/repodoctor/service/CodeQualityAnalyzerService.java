@@ -198,6 +198,7 @@ public class CodeQualityAnalyzerService {
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(score)
                 .confidence(Math.max(0.1, Math.min(1.0, (double) analyzedCount / 10.0)))
+                .confidenceReason("Based on " + analyzedCount + " analyzed source files")
                 .totalCandidateItemCount(sourceFiles.size())
                 .analyzedItemCount(analyzedCount)
                 .failedItemCount(sourceFiles.size() - analyzedCount)
