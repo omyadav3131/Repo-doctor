@@ -16,6 +16,10 @@ import com.omyadav.repodoctor.analysis.DimensionResult;
 @Service
 public class ProjectStructureAnalyzerService {
 
+    private static final List<String> COMMON_SRC_DIRS = List.of(
+        "src/", "app/", "backend/", "backend/app/", "server/", "api/", "client/", "frontend/"
+    );
+
     private final ExcludedPathService excludedPathService;
     private final RepositoryContentService repositoryContentService;
 
@@ -49,7 +53,10 @@ public class ProjectStructureAnalyzerService {
         Map<String, Object> details = new HashMap<>();
         List<String> reasons = new ArrayList<>();
         
-        long srcFiles = countFiles(tree, "src/");
+        long srcFiles = 0;
+        for (String dir : COMMON_SRC_DIRS) {
+            srcFiles += countFiles(tree, dir);
+        }
         long testFiles = countFiles(tree, "test/") + countFiles(tree, "tests/") + countFiles(tree, "spec/");
         long libFiles = countFiles(tree, "lib/");
         long docsFiles = countFiles(tree, "docs/");
@@ -89,24 +96,27 @@ public class ProjectStructureAnalyzerService {
         
         // Completeness & Quality depending on Type
         if ("SPRING_BOOT".equals(repositoryType) || "JAVA".equals(repositoryType)) {
-            if (countFiles(tree, "src/main/java/") > 0) {
+            if (countFiles(tree, "src/main/java/") > 0 || countFiles(tree, "backend/src/main/java/") > 0 || countFiles(tree, "app/src/main/java/") > 0 || countFiles(tree, "server/src/main/java/") > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Standard Java/Spring Boot layout (src/main/java) followed.");
-                reasons.add("✔ Standard Spring Boot source structure (src/main/java)");
+                reasons.add("✔ Standard Spring Boot source structure");
             } else {
                 reasons.add("✘ Missing standard Java source structure");
             }
-            if (countFiles(tree, "src/test/java/") > 0) {
+            if (countFiles(tree, "src/test/java/") > 0 || countFiles(tree, "backend/src/test/java/") > 0 || countFiles(tree, "app/src/test/java/") > 0 || countFiles(tree, "server/src/test/java/") > 0) {
                 scoreCompleteness += 15;
                 evidence.add("Standard Java/Spring Boot test layout (src/test/java) followed.");
-                reasons.add("✔ Standard Spring Boot test structure (src/test/java)");
+                reasons.add("✔ Standard Spring Boot test structure");
             }
             
             // Quality - are there nested packages?
             long nestedJava = tree.stream()
                 .filter(item -> isBlob(item))
                 .map(item -> item.get("path").toString())
-                .filter(p -> p.contains("src/main/java/com/") || p.contains("src/main/java/org/"))
+                .filter(p -> p.contains("src/main/java/com/") || p.contains("src/main/java/org/")
+                          || p.contains("backend/src/main/java/com/") || p.contains("backend/src/main/java/org/")
+                          || p.contains("app/src/main/java/com/") || p.contains("app/src/main/java/org/")
+                          || p.contains("server/src/main/java/com/") || p.contains("server/src/main/java/org/"))
                 .count();
                 
             if (nestedJava > 0) {
@@ -128,7 +138,8 @@ public class ProjectStructureAnalyzerService {
             }
             
             // Quality - module separation
-            long components = countFiles(tree, "src/components/") + countFiles(tree, "src/utils/") + countFiles(tree, "src/services/");
+            long components = countFiles(tree, "src/components/") + countFiles(tree, "src/utils/") + countFiles(tree, "src/services/")
+                            + countFiles(tree, "app/components/") + countFiles(tree, "client/src/components/") + countFiles(tree, "frontend/src/components/");
             if (components > 0) {
                 scoreQuality += 35;
                 evidence.add("Logical module separation detected in frontend structure.");
@@ -141,15 +152,16 @@ public class ProjectStructureAnalyzerService {
                 scoreCompleteness += 15;
             }
             long initPyCount = countFilesEndsWith(tree, "__init__.py");
-            if (initPyCount > 0) {
+            long appPyCount = countFilesEndsWith(tree, "routes.py") + countFilesEndsWith(tree, "models.py") + countFilesEndsWith(tree, "views.py") + countFilesEndsWith(tree, "main.py");
+            if (initPyCount > 0 || appPyCount > 0) {
                 scoreCompleteness += 15;
-                evidence.add("Python module structure (__init__.py) followed.");
-                reasons.add("✔ Standard Python module structure");
+                evidence.add("Python module structure or organized app files followed.");
+                reasons.add("✔ Standard Python module/app structure");
             }
-            if (initPyCount >= 3) {
+            if (initPyCount >= 3 || appPyCount >= 2) {
                 scoreQuality += 35;
-                evidence.add("Good Python package nesting detected.");
-                reasons.add("✔ Nested Python packages");
+                evidence.add("Good Python package nesting or app organization detected.");
+                reasons.add("✔ Organized Python packages/app");
             }
         } else if ("JUPYTER_NOTEBOOK".equals(repositoryType) || "DOCUMENTATION_REPOSITORY".equals(repositoryType)) {
             // simpler expectations
@@ -341,7 +353,7 @@ public class ProjectStructureAnalyzerService {
 
         DimensionResult.Builder builder = DimensionResult.builder(status)
                 .score(totalScore)
-                .confidence(truncated ? 0.7 : 1.0)
+                .confidence(truncated ? 0.6 : 1.0)
                 .totalCandidateItemCount(tree.size())
                 .analyzedItemCount(tree.size())
                 .failedItemCount(0)

@@ -138,7 +138,7 @@ public class ReadmeAnalyzerService {
 
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)
-                .confidence(1.0)
+                .confidence(Math.max(0.1, Math.min(1.0, (double) content.length() / 750.0)))
                 .details(details);
 
         for (String ev : evidence) {

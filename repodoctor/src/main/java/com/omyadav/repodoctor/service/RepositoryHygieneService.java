@@ -36,7 +36,7 @@ public class RepositoryHygieneService {
 
         boolean truncated = Boolean.TRUE.equals(repositoryTree.get("truncated"));
         AnalysisStatus status = truncated ? AnalysisStatus.PARTIAL : AnalysisStatus.SUCCESS;
-        double confidence = truncated ? 0.7 : 1.0;
+        double confidence = truncated ? 0.6 : 1.0;
 
         List<String> issues = new ArrayList<>();
         List<String> evidence = new ArrayList<>();

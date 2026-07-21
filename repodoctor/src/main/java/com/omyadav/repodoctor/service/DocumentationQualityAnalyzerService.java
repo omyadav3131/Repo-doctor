@@ -204,9 +204,12 @@ public class DocumentationQualityAnalyzerService {
         details.put("reasons", reasons);
         details.put("needsDocumentationImprovement", largeUndocumentedFiles.size() > 0 || (validFiles > 0 && documentationCoverage < 15.0));
 
+        double confidence = (validFiles + fetchFailed.get()) == 0 ? 0.0 : (double) validFiles / (validFiles + fetchFailed.get());
+        confidence = Math.max(0.1, confidence * Math.min(1.0, (double) validFiles / 10.0));
+
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)
-                .confidence(1.0)
+                .confidence(confidence)
                 .totalCandidateItemCount(sourceFiles.size() + docsFiles.size())
                 .analyzedItemCount(validFiles)
                 .failedItemCount(fetchFailed.get())
