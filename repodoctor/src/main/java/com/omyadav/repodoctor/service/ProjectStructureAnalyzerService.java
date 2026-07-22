@@ -12,12 +12,25 @@ import org.springframework.stereotype.Service;
 
 import com.omyadav.repodoctor.analysis.AnalysisStatus;
 import com.omyadav.repodoctor.analysis.DimensionResult;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class ProjectStructureAnalyzerService {
 
     private static final List<String> COMMON_SRC_DIRS = List.of(
         "src/", "app/", "backend/", "backend/app/", "server/", "api/", "client/", "frontend/"
+    );
+
+    private static final Set<String> APP_ENTRYPOINTS = Set.of(
+        "app.py", "main.py", "manage.py", "run.py", "wsgi.py", "asgi.py", "server.py",
+        "index.js", "server.js", "app.js", "main.go", "main.java", "program.cs", "build.rs", "setup.py",
+        "index.ts", "main.ts", "settings.py", "config.py", "setup.cfg", "pyproject.toml", "makefile", "dockerfile"
+    );
+
+    private static final Set<String> BOILERPLATE_FILENAMES = Set.of(
+        "__init__.py", "package-info.java", "module-info.java", "mod.rs", "lib.rs",
+        "cargo.toml", "go.mod", "routes.py", "models.py", "views.py", "forms.py", "urls.py",
+        "admin.py", "serializers.py", "tests.py", "conftest.py", "index.js", "index.ts"
     );
 
     private final ExcludedPathService excludedPathService;
@@ -270,6 +283,12 @@ public class ProjectStructureAnalyzerService {
         List<String> suspiciousCandidates = new ArrayList<>();
         Set<String> allPaths = new HashSet<>();
         
+        long rootFileCount = tree.stream()
+                .filter(this::isBlob)
+                .map(item -> item.get("path").toString())
+                .filter(p -> !p.contains("/"))
+                .count();
+        
         for (Map<String, Object> item : tree) {
             if (!isBlob(item)) continue;
             String path = item.get("path").toString();
@@ -293,13 +312,15 @@ public class ProjectStructureAnalyzerService {
             
             // Root clutter
             if (parts.length == 1) {
-                if (isRootClutter(lowerPath)) {
+                if (rootFileCount >= 12 && isRootClutter(lowerPath)) {
                     rootClutter.add(path);
                 }
             }
             
             // Duplicates
-            filenameToPaths.computeIfAbsent(lowerFilename, k -> new ArrayList<>()).add(path);
+            if (!BOILERPLATE_FILENAMES.contains(lowerFilename)) {
+                filenameToPaths.computeIfAbsent(lowerFilename, k -> new ArrayList<>()).add(path);
+            }
             
             // Suspicious names (must act as suffix on the base name)
             if (baseName.matches(".*[-_ ](v2|final|copy|backup)$")) {
@@ -326,9 +347,17 @@ public class ProjectStructureAnalyzerService {
         
         Map<String, List<String>> duplicateLookingFiles = new HashMap<>();
         int duplicateLookingFileCount = 0;
+        int maxComparisons = 200;
+        AtomicInteger comparisonsMade = new AtomicInteger(0);
+        int skippedCandidates = 0;
+        
         for (Map.Entry<String, List<String>> entry : filenameToPaths.entrySet()) {
             if (entry.getValue().size() > 1) {
-                List<String> actualDuplicates = filterActualDuplicates(owner, repository, branch, entry.getValue());
+                if (comparisonsMade.get() >= maxComparisons) {
+                    skippedCandidates += entry.getValue().size();
+                    continue;
+                }
+                List<String> actualDuplicates = filterActualDuplicates(owner, repository, branch, entry.getValue(), comparisonsMade, maxComparisons);
                 if (actualDuplicates.size() > 1) {
                     duplicateLookingFiles.put(entry.getKey(), actualDuplicates);
                     duplicateLookingFileCount += actualDuplicates.size();
@@ -341,6 +370,9 @@ public class ProjectStructureAnalyzerService {
         }
         if (duplicateLookingFileCount > 0) {
             reasons.add("✘ Potential duplicate files detected (" + duplicateLookingFileCount + ")");
+        }
+        if (skippedCandidates > 0) {
+            reasons.add("ℹ Duplicate-file check skipped for " + skippedCandidates + " additional candidate files due to repository size");
         }
 
         details.put("rootClutterCount", rootClutter.size());
@@ -392,21 +424,27 @@ public class ProjectStructureAnalyzerService {
     }
 
     private boolean isRootClutter(String lowerPath) {
+        if (APP_ENTRYPOINTS.contains(lowerPath)) {
+            return false;
+        }
         // Raw source code in root is typically clutter (unless specific exceptions like setup.py)
         if (lowerPath.matches(".*\\.(java|py|cpp|c|h|cs|go|rs|php|rb|swift|kt|dart)$")) {
-            return !(lowerPath.equals("setup.py") || lowerPath.equals("manage.py") || lowerPath.equals("main.go") || lowerPath.equals("build.rs"));
+            return true;
         }
         // Everything else (configs, docs, scripts, json, etc) is considered safe structural elements
         return false;
     }
 
-    private List<String> filterActualDuplicates(String owner, String repository, String branch, List<String> paths) {
+    private List<String> filterActualDuplicates(String owner, String repository, String branch, List<String> paths, AtomicInteger comparisonsMade, int maxComparisons) {
         List<String> flagged = new ArrayList<>();
         boolean[] isDuplicate = new boolean[paths.size()];
         
         for (int i = 0; i < paths.size(); i++) {
             for (int j = i + 1; j < paths.size(); j++) {
-                if (isActualDuplicate(owner, repository, branch, paths.get(i), paths.get(j))) {
+                if (comparisonsMade.get() >= maxComparisons) {
+                    break;
+                }
+                if (isActualDuplicate(owner, repository, branch, paths.get(i), paths.get(j), comparisonsMade, maxComparisons)) {
                     isDuplicate[i] = true;
                     isDuplicate[j] = true;
                 }
@@ -421,7 +459,7 @@ public class ProjectStructureAnalyzerService {
         return flagged;
     }
 
-    private boolean isActualDuplicate(String owner, String repository, String branch, String p1, String p2) {
+    private boolean isActualDuplicate(String owner, String repository, String branch, String p1, String p2, AtomicInteger comparisonsMade, int maxComparisons) {
         String[] parts1 = p1.toLowerCase(Locale.ROOT).split("/");
         String[] parts2 = p2.toLowerCase(Locale.ROOT).split("/");
         
@@ -437,6 +475,11 @@ public class ProjectStructureAnalyzerService {
         if (isMonorepoDivergence(parts1, parts2)) {
             return false;
         }
+
+        if (comparisonsMade.get() >= maxComparisons) {
+            return false;
+        }
+        comparisonsMade.incrementAndGet();
 
         // 2. Content Similarity Check (Evidence-based)
         String c1 = repositoryContentService.getRawFileContent(owner, repository, branch, p1);

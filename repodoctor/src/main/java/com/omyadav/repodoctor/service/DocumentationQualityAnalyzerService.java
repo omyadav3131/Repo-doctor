@@ -204,13 +204,21 @@ public class DocumentationQualityAnalyzerService {
         details.put("reasons", reasons);
         details.put("needsDocumentationImprovement", largeUndocumentedFiles.size() > 0 || (validFiles > 0 && documentationCoverage < 15.0));
 
-        double confidence = (validFiles + fetchFailed.get()) == 0 ? 0.0 : (double) validFiles / (validFiles + fetchFailed.get());
-        confidence = Math.max(0.1, confidence * Math.min(1.0, (double) validFiles / 10.0));
+        double confidence;
+        String confidenceReason;
+        if (validFiles == 0) {
+            confidence = 0.1;
+            confidenceReason = "No documentation-eligible files found";
+        } else {
+            confidence = (double) validFiles / (validFiles + fetchFailed.get());
+            confidence = Math.max(0.1, confidence * Math.min(1.0, (double) validFiles / 10.0));
+            confidenceReason = "Successfully parsed " + validFiles + " of " + (validFiles + fetchFailed.get()) + " valid files";
+        }
 
         DimensionResult.Builder builder = DimensionResult.builder(AnalysisStatus.SUCCESS)
                 .score(totalScore)
                 .confidence(confidence)
-                .confidenceReason("Successfully parsed " + validFiles + " of " + (validFiles + fetchFailed.get()) + " valid files")
+                .confidenceReason(confidenceReason)
                 .totalCandidateItemCount(sourceFiles.size() + docsFiles.size())
                 .analyzedItemCount(validFiles)
                 .failedItemCount(fetchFailed.get())
