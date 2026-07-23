@@ -12,7 +12,33 @@ const api = axios.create({
 
 export const analyzeRepository = async (repositoryUrl) => {
   const response = await api.post("/api/analyze", { repositoryUrl });
-  return response.data;
+  const data = response.data;
+  
+  if (data && data.jobId) {
+    const jobId = data.jobId;
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/api/analyze/${jobId}/status`);
+          const statusData = statusRes.data;
+          
+          if (statusData.status === "COMPLETED" || !statusData.status) {
+            clearInterval(interval);
+            resolve(statusData);
+          } else if (statusData.status?.startsWith("FAILED")) {
+            clearInterval(interval);
+            reject(new Error(statusData.status));
+          }
+          // if PENDING, just keep polling
+        } catch (err) {
+          clearInterval(interval);
+          reject(err);
+        }
+      }, 3000);
+    });
+  }
+  
+  return data;
 };
 
 export const getAllAnalyses = async () => {
