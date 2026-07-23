@@ -49,7 +49,15 @@ function HistoryPage() {
 
   const formatDate = (value) => {
     if (!value) return "—";
-    const date = new Date(value);
+    
+    // Spring Boot LocalDateTime sends without timezone (e.g. "2026-07-23T18:28:00")
+    // If it's missing 'Z' or offset, append 'Z' to treat it as UTC from backend.
+    let dateStr = String(value);
+    if (dateStr.includes("T") && !dateStr.endsWith("Z") && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+      dateStr += "Z";
+    }
+    
+    const date = new Date(dateStr);
     return isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -75,8 +83,14 @@ function HistoryPage() {
 
   // Sort by date
   const sorted = [...filtered].sort((a, b) => {
-    const dateA = new Date(a.analysisDate || 0).getTime();
-    const dateB = new Date(b.analysisDate || 0).getTime();
+    let dateStrA = a.analysisDate ? String(a.analysisDate) : "";
+    let dateStrB = b.analysisDate ? String(b.analysisDate) : "";
+    
+    if (dateStrA.includes("T") && !dateStrA.endsWith("Z") && !dateStrA.match(/[+-]\d{2}:\d{2}$/)) dateStrA += "Z";
+    if (dateStrB.includes("T") && !dateStrB.endsWith("Z") && !dateStrB.match(/[+-]\d{2}:\d{2}$/)) dateStrB += "Z";
+    
+    const dateA = new Date(dateStrA || 0).getTime();
+    const dateB = new Date(dateStrB || 0).getTime();
     return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
   });
 
