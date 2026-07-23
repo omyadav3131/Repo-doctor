@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +46,7 @@ public class AnalyzeController {
     private final AnalysisResultService analysisResultService;
     private final RepositoryTypeDetector repositoryTypeDetector;
     private final Executor analysisExecutor;
+    private final AnalysisJobService analysisJobService;
 
     public AnalyzeController(
             RepositoryParserService repositoryParserService,
@@ -58,6 +62,7 @@ public class AnalyzeController {
             RepositoryRecommendationService repositoryRecommendationService,
             AnalysisResultService analysisResultService,
             RepositoryTypeDetector repositoryTypeDetector,
+            AnalysisJobService analysisJobService,
             @Qualifier("analysisExecutor") Executor analysisExecutor) {
 
         this.repositoryParserService = repositoryParserService;
@@ -73,12 +78,50 @@ public class AnalyzeController {
         this.repositoryRecommendationService = repositoryRecommendationService;
         this.analysisResultService = analysisResultService;
         this.repositoryTypeDetector = repositoryTypeDetector;
+        this.analysisJobService = analysisJobService;
         this.analysisExecutor = analysisExecutor;
     }
 
     @PostMapping("/analyze")
-    public ResponseEntity<AnalysisResponse> analyzeRepository(
-            @Valid @RequestBody AnalyzeRequest request) {
+    public ResponseEntity<?> analyzeRepository(@Valid @RequestBody AnalyzeRequest request) {
+        String jobId = UUID.randomUUID().toString();
+        analysisJobService.startJob(jobId);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                performAnalysis(jobId, request);
+            } catch (Exception e) {
+                log.error("Job {} failed: {}", jobId, e.getMessage(), e);
+                analysisJobService.failJob(jobId, e.getMessage());
+            }
+        }, analysisExecutor);
+
+        return ResponseEntity.accepted().body(Map.of(
+                "jobId", jobId,
+                "status", "PENDING"
+        ));
+    }
+
+    @GetMapping("/analyze/{jobId}/status")
+    public ResponseEntity<?> getJobStatus(@PathVariable String jobId) {
+        String status = analysisJobService.getJobStatus(jobId);
+        if ("NOT_FOUND".equals(status)) {
+            return ResponseEntity.notFound().build();
+        }
+        if ("COMPLETED".equals(status)) {
+            AnalysisResponse result = analysisJobService.getJobResult(jobId);
+            return ResponseEntity.ok(result);
+        }
+        if (status.startsWith("FAILED:")) {
+            return ResponseEntity.status(500).body(Map.of("jobId", jobId, "status", status));
+        }
+        return ResponseEntity.ok(Map.of("jobId", jobId, "status", status));
+    }
+
+    private void performAnalysis(String jobId, AnalyzeRequest request) {
+
+        long totalStartTime = System.currentTimeMillis();
+        log.info("Starting analysis for {}", request.getRepositoryUrl());
 
         // PARSE REPOSITORY URL
         String[] repositoryDetails = repositoryParserService.parseRepositoryUrl(request.getRepositoryUrl());
@@ -99,12 +142,35 @@ public class AnalyzeController {
         String license = extractLicense(repositoryData);
 
         // FETCH REPOSITORY TREE
+        long treeFetchStart = System.currentTimeMillis();
         Map<String, Object> repositoryTree = gitHubService.getRepositoryTree(owner, repository, defaultBranch);
+        long treeFetchElapsed = System.currentTimeMillis() - treeFetchStart;
+        log.info("[TIMING] Tree fetch for {}/{} took {} ms", owner, repository, treeFetchElapsed);
 
         boolean treeWasTruncated = Boolean.TRUE.equals(repositoryTree.get("truncated"));
 
         // FILTER USEFUL FILES
         List<String> usefulFiles = repositoryFileFilterService.filterUsefulFiles(repositoryTree);
+
+        // CAP TREE SIZE for very large repositories
+        Object treeObj = repositoryTree.get("tree");
+        if (treeObj instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> tree = (List<Map<String, Object>>) treeObj;
+            if (tree.size() > 10000) {
+                Set<String> usefulPaths = new HashSet<>(usefulFiles);
+                List<Map<String, Object>> reducedTree = tree.stream()
+                        .filter(item -> {
+                            String type = (String) item.get("type");
+                            if ("tree".equals(type)) return true;
+                            String path = (String) item.get("path");
+                            return usefulPaths.contains(path);
+                        })
+                        .toList();
+                repositoryTree.put("tree", reducedTree);
+                log.info("[TIMING] Tree size capped from {} to {} for {}", tree.size(), reducedTree.size(), request.getRepositoryUrl());
+            }
+        }
 
         RepositoryMetadata metadata = new RepositoryMetadata(
                 owner,
@@ -130,7 +196,8 @@ public class AnalyzeController {
 
         // HANDLE EMPTY REPOSITORIES
         if (usefulFiles.isEmpty()) {
-            return buildEmptyRepositoryResponse(metadata, scope, repositoryUrl);
+            buildEmptyRepositoryResponse(jobId, metadata, scope, repositoryUrl);
+            return;
         }
 
         List<String> warnings = new ArrayList<>();
@@ -143,30 +210,57 @@ public class AnalyzeController {
 
         // PARALLELIZE ANALYZERS WITH TIMEOUT
         CompletableFuture<DimensionResult> hygieneFuture = CompletableFuture.supplyAsync(
-                () -> repositoryHygieneService.analyzeHygiene(repositoryTree, repositoryType), analysisExecutor);
+                () -> {
+                    long start = System.currentTimeMillis();
+                    DimensionResult result = repositoryHygieneService.analyzeHygiene(repositoryTree, repositoryType);
+                    log.info("[TIMING] Hygiene analyzer took {} ms", System.currentTimeMillis() - start);
+                    return result;
+                }, analysisExecutor);
 
         CompletableFuture<DimensionResult> readmeFuture = CompletableFuture.supplyAsync(() -> {
+            long start = System.currentTimeMillis();
             Map<String, Object> readmeData = gitHubService.getReadme(owner, repository);
             if (readmeData == null) {
+                log.info("[TIMING] Readme analyzer (no readme) took {} ms", System.currentTimeMillis() - start);
                 return DimensionResult.notAnalyzable("No README file found in the repository");
             }
-            return readmeAnalyzerService.analyzeReadme(readmeData, repositoryType);
+            DimensionResult result = readmeAnalyzerService.analyzeReadme(readmeData, repositoryType);
+            log.info("[TIMING] Readme analyzer took {} ms", System.currentTimeMillis() - start);
+            return result;
         }, analysisExecutor);
 
         CompletableFuture<DimensionResult> structureFuture = CompletableFuture.supplyAsync(
-                () -> projectStructureAnalyzerService.analyzeStructure(owner, repository, defaultBranch, repositoryTree, repositoryType), analysisExecutor);
+                () -> {
+                    long start = System.currentTimeMillis();
+                    DimensionResult result = projectStructureAnalyzerService.analyzeStructure(owner, repository, defaultBranch, repositoryTree, repositoryType);
+                    log.info("[TIMING] Structure analyzer took {} ms", System.currentTimeMillis() - start);
+                    return result;
+                }, analysisExecutor);
 
         CompletableFuture<DimensionResult> commitQualityFuture = CompletableFuture.supplyAsync(() -> {
+            long start = System.currentTimeMillis();
             List<Map<String, Object>> commits = gitHubService.getCommits(owner, repository);
-            return commitQualityAnalyzerService.analyzeCommits(commits, repositoryType);
+            DimensionResult result = commitQualityAnalyzerService.analyzeCommits(commits, repositoryType);
+            log.info("[TIMING] Commit quality analyzer took {} ms", System.currentTimeMillis() - start);
+            return result;
         }, analysisExecutor);
 
         CompletableFuture<DimensionResult> documentationFuture = CompletableFuture.supplyAsync(
-                () -> documentationQualityAnalyzerService.analyzeDocumentation(owner, repository, defaultBranch, usefulFiles, repositoryType),
+                () -> {
+                    long start = System.currentTimeMillis();
+                    DimensionResult result = documentationQualityAnalyzerService.analyzeDocumentation(owner, repository, defaultBranch, usefulFiles, repositoryType);
+                    log.info("[TIMING] Documentation analyzer took {} ms", System.currentTimeMillis() - start);
+                    return result;
+                },
                 analysisExecutor);
 
         CompletableFuture<DimensionResult> codeQualityFuture = CompletableFuture.supplyAsync(
-                () -> codeQualityAnalyzerService.analyzeCodeQuality(owner, repository, defaultBranch, usefulFiles, repositoryType),
+                () -> {
+                    long start = System.currentTimeMillis();
+                    DimensionResult result = codeQualityAnalyzerService.analyzeCodeQuality(owner, repository, defaultBranch, usefulFiles, repositoryType);
+                    log.info("[TIMING] Code quality analyzer took {} ms", System.currentTimeMillis() - start);
+                    return result;
+                },
                 analysisExecutor);
 
         // AWAIT ALL COMPLETIONS WITH TIMEOUT
@@ -181,7 +275,7 @@ public class AnalyzeController {
             CompletableFuture.allOf(
                     hygieneFuture, readmeFuture, structureFuture,
                     commitQualityFuture, documentationFuture, codeQualityFuture
-            ).get(ANALYSIS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            ).get((treeObj instanceof List && ((List<?>)treeObj).size() > 10000) ? 180 : ANALYSIS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             hygiene = hygieneFuture.join();
             readme = readmeFuture.join();
@@ -255,10 +349,13 @@ public class AnalyzeController {
             responseBuilder.warnings(warnings);
         }
 
-        return ResponseEntity.ok(responseBuilder.build());
+        long totalElapsed = System.currentTimeMillis() - totalStartTime;
+        log.info("[TIMING] Total request time for {}/{}: {} ms", owner, repository, totalElapsed);
+
+        analysisJobService.completeJob(jobId, responseBuilder.build());
     }
 
-    private ResponseEntity<AnalysisResponse> buildEmptyRepositoryResponse(
+    private void buildEmptyRepositoryResponse(String jobId, 
             RepositoryMetadata metadata, AnalysisScope scope, String repositoryUrl) {
 
         DimensionResult emptyDimension = DimensionResult.notAnalyzable("Repository has no analyzable files");
@@ -308,7 +405,7 @@ public class AnalyzeController {
             log.error("Failed to save empty repo analysis: {}", e.getMessage());
         }
 
-        return ResponseEntity.ok(response);
+        analysisJobService.completeJob(jobId, response);
     }
 
     @SuppressWarnings("unchecked")
