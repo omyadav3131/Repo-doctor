@@ -22,7 +22,7 @@ export const analyzeRepository = async (repositoryUrl) => {
           const statusRes = await api.get(`/api/analyze/${jobId}/status`);
           const statusData = statusRes.data;
           
-          if (statusData.status === "COMPLETED" || !statusData.status) {
+          if (statusData.status === "COMPLETED" || statusData.repository || statusData.overall) {
             clearInterval(interval);
             resolve(statusData);
           } else if (statusData.status?.startsWith("FAILED")) {
